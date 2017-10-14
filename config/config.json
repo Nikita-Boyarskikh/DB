@@ -1,0 +1,20 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "concurrency": 262144,
+    "readBufferSize": 410241024,
+    "writeBufferSize": 410241024,
+    "readTimeout": 60000,
+    "writeTimeout": 60000,
+    "maxRequestBodySize": 410241024,
+    "logAllErrors": true,
+    "disableHeaderNamesNormalizing": true
+  },
+  "db": {
+    "acquireTimeout": 1000,
+    "maxConnections": 3
+  },
+  "timestampInLayout": "2006-01-02T15:04:05.000Z07:00",
+  "timestampOutLayout": "2006-01-02T15:04:05.000Z"
+}
