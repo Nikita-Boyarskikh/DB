@@ -1,0 +1,2 @@
+#!/bin/bash
+easyjson -pkg -omit_empty -no_std_marshalers -lower_camel_case -all db config api
