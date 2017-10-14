@@ -89,3 +89,9 @@ fabric.properties
 ################################################
 
 report.html
+
+############################
+# Easy JSON generated code #
+############################
+
+*_easyjson.go
