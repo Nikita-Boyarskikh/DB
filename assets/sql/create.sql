@@ -1,23 +1,23 @@
 CREATE TABLE IF NOT EXISTS users (
   nickname CITEXT, --CONSTRAINT pk__users_ID PRIMARY KEY,
   --CONSTRAINT ch__users_nickname CHECK (nickname ~ '^[\d\w_]+$'),
-  fullname VARCHAR,
+  fullname TEXT,
   --CONSTRAINT nn__users_fullname NOT NULL,
   email    CITEXT,
   --CONSTRAINT nn__users_email NOT NULL
   --CONSTRAINT uk__users_email UNIQUE
   --CONSTRAINT ch__users_email CHECK (email ~* '^[\w\d._-]+@[\w\d._-]+\.\w{2,4}$'),
-  about    VARCHAR
+  about    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS forums (
   ID      SERIAL, --CONSTRAINT pk__forums_ID PRIMARY KEY,
-  posts   INT DEFAULT 0,
+  posts   INT8 DEFAULT 0,
   slug    CITEXT,
   --CONSTRAINT nn__forums_slug NOT NULL
   --CONSTRAINT uk__forums_slug UNIQUE,
-  threads INT DEFAULT 0,
-  title   VARCHAR,
+  threads INT4 DEFAULT 0,
+  title   TEXT,
   --CONSTRAINT nn__forums_title NOT NULL,
   userID  CITEXT
   --CONSTRAINT nn__forums_userID NOT NULL
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS forums (
 );
 
 CREATE TABLE IF NOT EXISTS threads (
-  ID       SERIAL, --CONSTRAINT pk__threads_ID PRIMARY KEY,
+  ID       SERIAL4, --CONSTRAINT pk__threads_ID PRIMARY KEY,
   authorID CITEXT,
   --CONSTRAINT nn__threads_authorID NOT NULL
   --CONSTRAINT fk__threads_authorID__user_ID REFERENCES users (Nickname)
@@ -40,16 +40,16 @@ CREATE TABLE IF NOT EXISTS threads (
   --ON UPDATE RESTRICT ON DELETE RESTRICT,
   message  TEXT,
   --CONSTRAINT nn__threads_message NOT NULL,
-  title    VARCHAR,
+  title    TEXT,
   --CONSTRAINT nn__threads_title NOT NULL,
   slug     CITEXT,
   --CONSTRAINT uk__threads_slug UNIQUE,
-  votes    INT            DEFAULT 0
+  votes    INT4            DEFAULT 0
   --CONSTRAINT ch__threads_slug CHECK (slug ~ '^(\d|\w|-|_)*(\w|-|_)(\d|\w|-|_)*$')
 );
 
 CREATE TABLE IF NOT EXISTS posts (
-  ID       SERIAL, --CONSTRAINT pk__posts_ID PRIMARY KEY,
+  ID       SERIAL8, --CONSTRAINT pk__posts_ID PRIMARY KEY,
   authorID CITEXT,
   --CONSTRAINT nn__posts_authorID NOT NULL
   --CONSTRAINT fk__posts_authorID__users_ID REFERENCES users (Nickname)
@@ -63,16 +63,18 @@ CREATE TABLE IF NOT EXISTS posts (
   --CONSTRAINT nn__posts_isEdited NOT NULL,
   message  TEXT,
   --CONSTRAINT nn__posts_message NOT NULL,
-  parentID INT DEFAULT 0,
+  parentID INT8 DEFAULT 0,
   --CONSTRAINT fk__posts_parentID__posts_ID REFERENCES posts (ID),
-  threadID INT
+  threadID INT4,
   --CONSTRAINT nn__posts_threadID NOT NULL
   --CONSTRAINT fk__posts_threadID__threads_ID REFERENCES threads (ID)
-  --ON UPDATE RESTRICT ON DELETE RESTRICT
+  --ON UPDATE RESTRICT ON DELETE RESTRICT,
+  parents INT8[]
+  --CONSTRAINT nn__posts_path NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS voices (
-  threadID INT,
+  threadID INT4,
   --CONSTRAINT nn__voices_threadID NOT NULL
   --CONSTRAINT fk__voices_threadID__threads_ID REFERENCES threads (ID)
   --ON UPDATE RESTRICT ON DELETE RESTRICT
@@ -80,9 +82,7 @@ CREATE TABLE IF NOT EXISTS voices (
   --CONSTRAINT nn__voices_userID NOT NULL
   --CONSTRAINT fk__voices_userID__users_ID REFERENCES users (ID)
   --ON UPDATE RESTRICT ON DELETE RESTRICT,
-  voice    INT,
-
-
+  voice    INT2,
   --CONSTRAINT ch__voices_voice CHECK (voice IN (-1, 1)),
   CONSTRAINT pk__voices_thread_nickname PRIMARY KEY (threadID, userID)
 );
