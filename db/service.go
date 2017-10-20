@@ -1,5 +1,11 @@
 package db
 
+import (
+	"fmt"
+
+	"github.com/jackc/pgx"
+)
+
 //easyjson:json
 type Status struct {
 	User   int32
@@ -15,23 +21,27 @@ var (
 
 func GetStatus() (Status, error) {
 	if !initialized {
-		log.Printf(`SELECT COUNT(nickname) FROM users`)
-		if err := conn.QueryRow(`SELECT COUNT(nickname) FROM users`).Scan(&status.User); err != nil {
+		sql := `SELECT COUNT(nickname) FROM users`
+		log.Printf(sql)
+		if err := conn.QueryRow(sql).Scan(&status.User); err != nil {
 			return status, err
 		}
 
-		log.Printf(`SELECT COUNT(ID) FROM forums`)
-		if err := conn.QueryRow(`SELECT COUNT(ID) FROM forums`).Scan(&status.Forum); err != nil {
+		sql = `SELECT COUNT(ID) FROM forums`
+		log.Printf(sql)
+		if err := conn.QueryRow(sql).Scan(&status.Forum); err != nil {
 			return status, err
 		}
 
-		log.Printf(`SELECT COUNT(ID) FROM threads`)
-		if err := conn.QueryRow(`SELECT COUNT(ID) FROM threads`).Scan(&status.Thread); err != nil {
+		sql = `SELECT COUNT(ID) FROM threads`
+		log.Printf(sql)
+		if err := conn.QueryRow(sql).Scan(&status.Thread); err != nil {
 			return status, err
 		}
 
-		log.Printf(`SELECT COUNT(ID) FROM posts`)
-		if err := conn.QueryRow(`SELECT COUNT(ID) FROM posts`).Scan(&status.Post); err != nil {
+		sql = `SELECT COUNT(ID) FROM posts`
+		log.Printf(sql)
+		if err := conn.QueryRow(sql).Scan(&status.Post); err != nil {
 			return status, err
 		}
 	}
@@ -40,7 +50,6 @@ func GetStatus() (Status, error) {
 	return status, nil
 }
 
-// TODO: Refactor this method!
 func Clear() error {
 	tx, err := conn.Begin()
 	if err != nil {
@@ -48,49 +57,76 @@ func Clear() error {
 	}
 
 	if !initialized || status.User > 0 {
-		log.Printf(`TRUNCATE TABLE users`)
-		if _, err := conn.Exec(`TRUNCATE TABLE users`); err != nil {
-			if err := tx.Rollback(); err != nil {
-				log.Println("\t500:\t", err)
-				return err
-			}
-			return err
-		}
+		truncate(tx, "users")
 	}
 	if !initialized || status.Forum > 0 {
-		log.Printf(`TRUNCATE TABLE forums`)
-		if _, err := conn.Exec(`TRUNCATE TABLE forums`); err != nil {
-			if err := tx.Rollback(); err != nil {
-				log.Println("\t500:\t", err)
-				return err
-			}
-			return err
-		}
+		truncate(tx, "forums")
 	}
 	if !initialized || status.Thread > 0 {
-		log.Printf(`TRUNCATE TABLE threads`)
-		if _, err := conn.Exec(`TRUNCATE TABLE threads`); err != nil {
-			if err := tx.Rollback(); err != nil {
-				log.Println("\t500:\t", err)
-				return err
-			}
-			return err
-		}
-
+		truncate(tx, "threads")
 	}
 	if !initialized || status.Post > 0 {
-		log.Printf(`TRUNCATE TABLE posts`)
-		if _, err := conn.Exec(`TRUNCATE TABLE posts`); err != nil {
-			if err := tx.Rollback(); err != nil {
-				log.Println("\t500:\t", err)
-				return err
-			}
-			return err
-		}
+		truncate(tx, "posts")
 	}
 
 	if err := tx.Commit(); err != nil {
 		log.Println("\t500:\t", err)
+		return err
+	}
+
+	status.User = 0
+	status.Forum = 0
+	status.Thread = 0
+	status.Post = 0
+
+	return nil
+}
+
+func NewUser() {
+	status.User++
+}
+
+func NewForum() {
+	status.Forum++
+}
+
+func NewThread(slug string) error {
+	sql := `UPDATE forums SET threads = threads + 1 WHERE slug = `
+	log.Printf(sql+"%s", slug)
+	if _, err := conn.Exec(sql+"$1", slug); err != nil {
+		return err
+	}
+	status.Thread++
+	return nil
+}
+
+func NewPosts(posts Posts) error {
+	postsCount := make(map[string]int)
+	for _, post := range posts {
+		postsCount[post.Forum.V]++
+	}
+
+	for slug, n := range postsCount {
+		logSql := `UPDATE forums SET posts = posts + %d WHERE slug = %s`
+		sql := `UPDATE forums SET posts = posts + $1 WHERE slug = $2`
+		log.Printf(logSql, n, slug)
+		if _, err := conn.Exec(sql, n, slug); err != nil {
+			return err
+		}
+	}
+
+	status.Post += int64(len(posts))
+	return nil
+}
+
+func truncate(tx *pgx.Tx, table string) error {
+	sql := fmt.Sprintf(`TRUNCATE TABLE %s`, table)
+	log.Printf(sql)
+	if _, err := conn.Exec(sql); err != nil {
+		if err := tx.Rollback(); err != nil {
+			log.Println("\t500:\t", err)
+			return err
+		}
 		return err
 	}
 	return nil
