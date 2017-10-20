@@ -1,6 +1,11 @@
 package db
 
 import (
+	"fmt"
+	"strings"
+
+	"strconv"
+
 	"github.com/mailru/easyjson/opt"
 	"github.com/pkg/errors"
 )
@@ -24,8 +29,9 @@ func UpdateUser(u User) (User, error) {
 		about    = opt2string(u.About, "")
 	)
 	if !u.Nickname.Defined {
-		log.Println("User nickname id not defined")
-		return User{}, errors.New("User nickname id not defined")
+		message := "User nickname id not defined"
+		log.Println(message)
+		return User{}, errors.New(message)
 	}
 
 	if u.Fullname == "" && u.Email == "" && about == "" {
@@ -126,6 +132,7 @@ func CreateUser(u User) error {
 		return err
 	}
 
+	NewUser()
 	return nil
 }
 
@@ -176,5 +183,80 @@ func GetUsersByEmailAndNickname(email, nickname string) (Users, error) {
 			About:    opt.OString(vals[3].(string)),
 		})
 	}
+	return users, nil
+}
+
+func CheckAllUsersExists(nicknames []string) (bool, error) {
+	count := 0
+	uniqNicknamesMap := make(map[string]bool)
+	for _, n := range nicknames {
+		uniqNicknamesMap[n] = true
+	}
+
+	var uniqNicknames []string
+	for n := range uniqNicknamesMap {
+		uniqNicknames = append(uniqNicknames, n)
+	}
+
+	log.Printf(`SELECT COUNT(nickname) FROM users WHERE nickname IN (%s)`, strings.Join(uniqNicknames, ", "))
+	err := conn.QueryRow(fmt.Sprintf(`SELECT COUNT(nickname) FROM users WHERE nickname IN ('%s')`,
+		strings.Join(uniqNicknames, "', '"))).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return count == len(uniqNicknames), nil
+}
+
+func GetUsersByForumSlug(slug string, since string, limit int, desc bool) (Users, error) {
+	sqlPattern := `SELECT u.nickname, u.fullname, u.email, u.about FROM (
+		SELECT authorID, forumID FROM posts UNION SELECT authorID, forumID FROM threads
+	) AS ids JOIN users AS u ON (ids.authorID = u.nickname) WHERE ids.forumID = %s ORDER BY u.nickname %s`
+
+	args := make([]string, 2)
+	args[0] = "'" + slug + "'"
+
+	if since != "" {
+		if desc {
+			args[0] += " AND nickname < '" + since + "'"
+			args[1] = "DESC"
+		} else {
+			args[0] += " AND nickname > '" + since + "'"
+			args[1] = "ASC"
+		}
+	} else {
+		if desc {
+			args[1] = "DESC"
+		} else {
+			args[1] = "ASC"
+		}
+	}
+
+	if limit != -1 {
+		args[1] += " LIMIT " + strconv.Itoa(limit)
+	}
+
+	sql := fmt.Sprintf(sqlPattern, args[0], args[1])
+	log.Printf(sql)
+	rows, err := conn.Query(sql)
+	if err != nil {
+		return Users{}, err
+	}
+
+	var users Users
+	for rows.Next() {
+		val, err := rows.Values()
+		if err != nil {
+			return Users{}, err
+		}
+
+		users = append(users, User{
+			Nickname: opt.OString(val[0].(string)),
+			Fullname: val[1].(string),
+			Email:    val[2].(string),
+			About:    opt.OString(val[3].(string)),
+		})
+	}
+
 	return users, nil
 }
