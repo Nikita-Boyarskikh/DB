@@ -77,6 +77,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 		ctx.SetContentType("application/json")
 		ctx.SetBody(json)
 
+		db.NewForum()
 		log.Println("\t201\t", string(json))
 		return nil
 	})
@@ -213,6 +214,27 @@ func ForumRouter(forum *routing.RouteGroup) {
 		logApi(ctx)
 
 		slug := ctx.Param("slug")
+
+		_, _, err := db.GetForumBySlug(slug)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				json, err := easyjson.Marshal(Error{"Forum with requested slug is not found"})
+				if err != nil {
+					log.Println("\t500:\t", err)
+					return err
+				}
+
+				ctx.SetStatusCode(fasthttp.StatusNotFound)
+				ctx.SetContentType("application/json")
+				ctx.SetBody(json)
+				log.Println("\t404\t", string(json))
+				return nil
+			} else {
+				log.Println("\t500:\t", err)
+				return err
+			}
+		}
+
 		limit, err := ctx.QueryArgs().GetUint("limit")
 		if err != nil {
 			log.Println("\t400:\t", err)
@@ -238,7 +260,33 @@ func ForumRouter(forum *routing.RouteGroup) {
 			}
 		}
 
-		_, _, err = db.GetForumBySlug(slug)
+		threads, err := db.GetThreadsBySlug(slug, limit, sinceTime, desc)
+		if err != nil {
+			log.Println("\t500:\t", err)
+			return err
+		}
+
+		if len(threads) == 0 {
+			threads = db.Threads{}
+		}
+
+		json, err := easyjson.Marshal(threads)
+		if err != nil {
+			log.Println("\t500:\t", err)
+			return err
+		}
+
+		ctx.Success("application/json", json)
+		log.Println("\t200\t", string(json))
+		return nil
+	})
+
+	forum.Get("/<slug>/users", func(ctx *routing.Context) error {
+		logApi(ctx)
+
+		slug := ctx.Param("slug")
+
+		_, _, err := db.GetForumBySlug(slug)
 		if err != nil {
 			if err == pgx.ErrNoRows {
 				json, err := easyjson.Marshal(Error{"Forum with requested slug is not found"})
@@ -258,17 +306,25 @@ func ForumRouter(forum *routing.RouteGroup) {
 			}
 		}
 
-		threads, err := db.GetThreadsBySlug(slug, limit, sinceTime, desc)
+		limit, err := ctx.QueryArgs().GetUint("limit")
+		if err != nil {
+			limit = -1
+		}
+		since := ctx.QueryArgs().Peek("since")
+		descRaw := ctx.QueryArgs().Peek("desc")
+		desc := string(descRaw) == "true"
+
+		users, err := db.GetUsersByForumSlug(slug, string(since), limit, desc)
 		if err != nil {
 			log.Println("\t500:\t", err)
 			return err
 		}
 
-		if len(threads) == 0 {
-			threads = db.Threads{}
+		if len(users) == 0 {
+			users = db.Users{}
 		}
 
-		json, err := easyjson.Marshal(threads)
+		json, err := easyjson.Marshal(users)
 		if err != nil {
 			log.Println("\t500:\t", err)
 			return err
@@ -276,6 +332,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 
 		ctx.Success("application/json", json)
 		log.Println("\t200\t", string(json))
+
 		return nil
 	})
 }
