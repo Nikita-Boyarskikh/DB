@@ -95,6 +95,9 @@ func CreateThread(t Thread) (Thread, error) {
 	t.Votes = opt.OInt32(0)
 	t.Created = opt.OString(created.Format(config.TimestampOutLayout))
 	t.ID = opt.OInt32(id)
+	if err := NewThread(t.Forum.V); err != nil {
+		return Thread{}, nil
+	}
 	return t, nil
 }
 

@@ -24,7 +24,7 @@ func PostRouter(post *routing.RouteGroup) {
 		intId, _ := strconv.Atoi(strId)
 		id := int64(intId)
 
-		_, err := db.GetPost(id)
+		exPost, err := db.GetPost(id)
 		if err != nil {
 			if err == pgx.ErrNoRows {
 				json, err := easyjson.Marshal(Error{"Post with requested ID is not found"})
@@ -54,7 +54,7 @@ func PostRouter(post *routing.RouteGroup) {
 
 		var post db.Post
 		if editPost.Message.Defined {
-			post, err = db.UpdatePostMessage(id, editPost.Message.V)
+			post, err = db.UpdatePostMessage(id, editPost.Message.V, editPost.Message.V != exPost.Message)
 			if err != nil {
 				log.Println("\t500:\t", err)
 				return err
@@ -105,6 +105,7 @@ func PostRouter(post *routing.RouteGroup) {
 			}
 		}
 
+		var json []byte
 		rel := ctx.QueryArgs().Peek("related")
 		relObjs := make(map[string]bool)
 		for _, rel := range strings.Split(string(rel), ",") {
@@ -112,27 +113,25 @@ func PostRouter(post *routing.RouteGroup) {
 		}
 
 		var (
-			author db.User
-			thread db.Thread
-			forum  db.Forum
+			author *db.User
+			thread *db.Thread
+			forum  *db.Forum
 		)
 
-		if relObjs["author"] {
-			author, _ = db.GetUserByNickname(post.Author)
+		if relObjs["user"] {
+			authorObj, _ := db.GetUserByNickname(post.Author)
+			author = &authorObj
 		}
 		if relObjs["thread"] {
-			thread, _ = db.GetThreadBySlugOrID(string(post.Thread.V), post.Thread.V)
+			threadObj, _ := db.GetThreadBySlugOrID(string(post.Thread.V), post.Thread.V)
+			thread = &threadObj
 		}
 		if relObjs["forum"] {
-			_, forum, _ = db.GetForumBySlug(post.Forum.V)
-		}
-		if !relObjs["post"] {
-			post = db.Post{}
+			_, forumObj, _ := db.GetForumBySlug(post.Forum.V)
+			forum = &forumObj
 		}
 
-		log.Println(post.IsEdited.Defined)
-
-		json, err := easyjson.Marshal(db.PostFull{
+		json, err = easyjson.Marshal(db.PostFull{
 			Post:   post,
 			Author: author,
 			Thread: thread,
