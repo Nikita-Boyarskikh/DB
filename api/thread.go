@@ -3,9 +3,6 @@ package api
 import (
 	"strconv"
 
-	"time"
-
-	"github.com/Nikita-Boyarskikh/DB/config"
 	"github.com/Nikita-Boyarskikh/DB/db"
 	"github.com/jackc/pgx"
 	"github.com/mailru/easyjson"
@@ -204,6 +201,47 @@ func ThreadRouter(thread *routing.RouteGroup) {
 			return nil
 		}
 
+		var nicknames []string
+		for _, post := range posts {
+			nicknames = append(nicknames, post.Author)
+		}
+
+		if len(nicknames) > 0 {
+			exists, _ := db.CheckAllUsersExists(nicknames)
+			if !exists {
+				json, err := easyjson.Marshal(Error{"Can't find any post authors"})
+				if err != nil {
+					log.Println("\t500:\t", err)
+					return err
+				}
+
+				ctx.SetStatusCode(fasthttp.StatusNotFound)
+				ctx.SetContentType("application/json")
+				ctx.SetBody(json)
+				log.Println("\t404\t", string(json))
+				return nil
+			}
+		}
+
+		var otherThread bool
+		if otherThread, err = db.CheckAllPostsInOneThread(t.ID.V, posts); err != nil {
+			log.Println("\t500:\t", err)
+			return err
+		} else if !otherThread {
+			json, err := easyjson.Marshal(Error{"Parent post was created in another thread"})
+			if err != nil {
+				log.Println("\t500:\t", err)
+				return err
+			}
+
+			ctx.SetStatusCode(fasthttp.StatusConflict)
+			ctx.SetContentType("application/json")
+			ctx.SetBody(json)
+
+			log.Println("\t409:\t")
+			return nil
+		}
+
 		createdPosts, err := db.CreatePostsInThread(t.Forum.V, t.ID.V, posts)
 		if err != nil {
 			log.Println("\t500:\t", err)
@@ -255,30 +293,27 @@ func ThreadRouter(thread *routing.RouteGroup) {
 			ctx.SetStatusCode(fasthttp.StatusBadRequest)
 			return nil
 		}
-		sinceRaw := ctx.QueryArgs().Peek("since")
+		sinceRow := ctx.QueryArgs().Peek("since")
 		descRaw := ctx.QueryArgs().Peek("desc")
 		sort := ctx.QueryArgs().Peek("sort")
 		desc := string(descRaw) == "true"
 
-		var sinceTime time.Time
-		if len(sinceRaw) > 0 {
-			if sinceTime, err = time.Parse(config.TimestampInLayout, string(sinceRaw)); err != nil {
-				log.Println("\t400:\t", err)
-				ctx.SetStatusCode(fasthttp.StatusBadRequest)
-				return nil
-			}
+		var since int64
+		sinceInt, err := strconv.Atoi(string(sinceRow))
+		if err != nil {
+			since = -1
 		} else {
-			if desc {
-				sinceTime = time.Now().AddDate(9999, 0, 0)
-			} else {
-				sinceTime = time.Unix(0, 0)
-			}
+			since = int64(sinceInt)
 		}
 
-		posts, err := db.GetPosts(t.ID.V, limit, sinceTime, string(sort), desc)
+		posts, err := db.GetPosts(t.ID.V, limit, since, string(sort), desc)
 		if err != nil {
 			log.Println("\t500:\t", err)
 			return err
+		}
+
+		if len(posts) == 0 {
+			posts = db.Posts{}
 		}
 
 		json, err := easyjson.Marshal(posts)
