@@ -7,11 +7,6 @@ import (
 	"github.com/qiangxue/fasthttp-routing"
 )
 
-//easyjson:json
-type Error struct {
-	Message string
-}
-
 var (
 	router *routing.Router
 	log    stdlog.Logger

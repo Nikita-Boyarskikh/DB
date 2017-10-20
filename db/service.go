@@ -3,23 +3,16 @@ package db
 import (
 	"fmt"
 
+	"github.com/Nikita-Boyarskikh/DB/models"
 	"github.com/jackc/pgx"
 )
 
-//easyjson:json
-type Status struct {
-	User   int32
-	Forum  int32
-	Thread int32
-	Post   int64
-}
-
 var (
-	status      = Status{}
+	status      = models.Status{}
 	initialized = false
 )
 
-func GetStatus() (Status, error) {
+func GetStatus() (models.Status, error) {
 	if !initialized {
 		sql := `SELECT COUNT(nickname) FROM users`
 		log.Printf(sql)
@@ -100,7 +93,7 @@ func NewThread(slug string) error {
 	return nil
 }
 
-func NewPosts(posts Posts) error {
+func NewPosts(posts models.Posts) error {
 	postsCount := make(map[string]int)
 	for _, post := range posts {
 		postsCount[post.Forum.V]++

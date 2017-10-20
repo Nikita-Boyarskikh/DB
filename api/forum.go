@@ -5,6 +5,7 @@ import (
 
 	"github.com/Nikita-Boyarskikh/DB/config"
 	"github.com/Nikita-Boyarskikh/DB/db"
+	"github.com/Nikita-Boyarskikh/DB/models"
 	"github.com/jackc/pgx"
 	"github.com/mailru/easyjson"
 	"github.com/mailru/easyjson/opt"
@@ -16,7 +17,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 	forum.Post("/create", func(ctx *routing.Context) error {
 		logApi(ctx)
 
-		var forum db.Forum
+		var forum models.Forum
 		if err := easyjson.Unmarshal(ctx.PostBody(), &forum); err != nil {
 			log.Println("\t400:\t", err)
 			ctx.SetStatusCode(fasthttp.StatusBadRequest)
@@ -44,7 +45,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 		user, err := db.GetUserByNickname(forum.User)
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"Forums author is not found"})
+				json, err := easyjson.Marshal(models.Error{"Forums author is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -90,7 +91,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 		_, forum, err := db.GetForumBySlug(slug)
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"Forum with requested slug is not found"})
+				json, err := easyjson.Marshal(models.Error{"Forum with requested slug is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -127,7 +128,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 		_, forum, err := db.GetForumBySlug(slug)
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"Forum with requested slug is not found"})
+				json, err := easyjson.Marshal(models.Error{"Forum with requested slug is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -144,7 +145,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 			}
 		}
 
-		var thread db.Thread
+		var thread models.Thread
 		if err := easyjson.Unmarshal(ctx.PostBody(), &thread); err != nil {
 			log.Println("\t400:\t", err)
 			ctx.SetStatusCode(fasthttp.StatusBadRequest)
@@ -154,7 +155,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 		user, err := db.GetUserByNickname(thread.Author)
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"User who thread's author is not found"})
+				json, err := easyjson.Marshal(models.Error{"User who thread's author is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -218,7 +219,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 		_, _, err := db.GetForumBySlug(slug)
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"Forum with requested slug is not found"})
+				json, err := easyjson.Marshal(models.Error{"Forum with requested slug is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -267,7 +268,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 		}
 
 		if len(threads) == 0 {
-			threads = db.Threads{}
+			threads = models.Threads{}
 		}
 
 		json, err := easyjson.Marshal(threads)
@@ -289,7 +290,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 		_, _, err := db.GetForumBySlug(slug)
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"Forum with requested slug is not found"})
+				json, err := easyjson.Marshal(models.Error{"Forum with requested slug is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -321,7 +322,7 @@ func ForumRouter(forum *routing.RouteGroup) {
 		}
 
 		if len(users) == 0 {
-			users = db.Users{}
+			users = models.Users{}
 		}
 
 		json, err := easyjson.Marshal(users)

@@ -12,33 +12,11 @@ import (
 
 	"fmt"
 
+	"github.com/Nikita-Boyarskikh/DB/models"
 	"github.com/mailru/easyjson/opt"
 )
 
-//easyjson:json
-type Post struct {
-	ID       opt.Int64
-	Author   string
-	Created  opt.String
-	Forum    opt.String
-	IsEdited opt.Bool
-	Message  string
-	Parent   opt.Int64
-	Thread   opt.Int32
-}
-
-//easyjson:json
-type Posts []Post
-
-//easyjson:json
-type PostFull struct {
-	Post   Post
-	Author *User
-	Thread *Thread
-	Forum  *Forum
-}
-
-func CreatePostsInThread(forum string, thread int32, posts Posts) (Posts, error) {
+func CreatePostsInThread(forum string, thread int32, posts models.Posts) (models.Posts, error) {
 	logSql := `INSERT INTO posts(ID, authorID, forumID, message, parentID, threadID, parents) VALUES `
 	sql := logSql
 
@@ -51,7 +29,7 @@ func CreatePostsInThread(forum string, thread int32, posts Posts) (Posts, error)
 	)
 	for count, post := range posts {
 		if err := conn.QueryRow(`SELECT nextval('posts_id_seq')`).Scan(&ID); err != nil {
-			return Posts{}, nil
+			return models.Posts{}, nil
 		}
 
 		logSqlPlaceholders = append(logSqlPlaceholders,
@@ -69,25 +47,25 @@ func CreatePostsInThread(forum string, thread int32, posts Posts) (Posts, error)
 	}
 
 	if len(args) == 0 {
-		return Posts{}, nil
+		return models.Posts{}, nil
 	}
 
 	log.Printf(logSql+strings.Join(logSqlPlaceholders, ", "), args...)
 	rows, err := conn.Query(sql+strings.Join(sqlPlaceholders, ", ")+
 		` RETURNING ID, created AT TIME ZONE 'UTC'`, args...)
 	if err != nil {
-		return Posts{}, err
+		return models.Posts{}, err
 	}
 
 	i := 0
-	var result Posts
+	var result models.Posts
 	for rows.Next() {
 		values, err := rows.Values()
 		if err != nil {
-			return Posts{}, err
+			return models.Posts{}, err
 		}
 
-		post := Post{
+		post := models.Post{
 			ID:       opt.OInt64(values[0].(int64)),
 			Author:   posts[i].Author,
 			Created:  opt.OString(values[1].(time.Time).Format(config.TimestampOutLayout)),
@@ -103,14 +81,14 @@ func CreatePostsInThread(forum string, thread int32, posts Posts) (Posts, error)
 	}
 
 	if err := NewPosts(result); err != nil {
-		return Posts{}, err
+		return models.Posts{}, err
 	}
 	return result, nil
 }
 
-func UpdatePostMessage(id int64, message string, edited bool) (Post, error) {
+func UpdatePostMessage(id int64, message string, edited bool) (models.Post, error) {
 	var (
-		post    Post
+		post    models.Post
 		created time.Time
 		forum   string
 		parent  int64
@@ -121,7 +99,7 @@ func UpdatePostMessage(id int64, message string, edited bool) (Post, error) {
 	if err := conn.QueryRow(`UPDATE posts SET message=$1, isEdited=$2 WHERE ID=$3
 			RETURNING authorID, created AT TIME ZONE 'UTC', forumID, parentID, threadID`, message, edited, id).
 		Scan(&post.Author, &created, &forum, &parent, &thread); err != nil {
-		return Post{}, err
+		return models.Post{}, err
 	}
 
 	post.ID = opt.OInt64(id)
@@ -135,9 +113,9 @@ func UpdatePostMessage(id int64, message string, edited bool) (Post, error) {
 	return post, nil
 }
 
-func GetPost(id int64) (Post, error) {
+func GetPost(id int64) (models.Post, error) {
 	var (
-		post    Post
+		post    models.Post
 		created time.Time
 		forum   string
 		edited  bool
@@ -150,7 +128,7 @@ func GetPost(id int64) (Post, error) {
 	if err := conn.QueryRow(`SELECT authorID, created AT TIME ZONE 'UTC', forumID, isEdited, message, parentID, threadID FROM posts
 		WHERE id=$1`, id).
 		Scan(&post.Author, &created, &forum, &edited, &post.Message, &parent, &thread); err != nil {
-		return Post{}, err
+		return models.Post{}, err
 	}
 
 	post.ID = opt.OInt64(id)
@@ -163,10 +141,10 @@ func GetPost(id int64) (Post, error) {
 	return post, nil
 }
 
-func GetPosts(id int32, limit int, since int64, sort string, desc bool) (Posts, error) {
+func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.Posts, error) {
 	var (
 		rows  *pgx.Rows
-		posts Posts
+		posts models.Posts
 	)
 
 	switch sort {
@@ -202,7 +180,7 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (Posts, 
 		log.Printf(logSql, id, limit)
 		var err error
 		if rows, err = conn.Query(sql, id, limit); err != nil {
-			return Posts{}, err
+			return models.Posts{}, err
 		}
 		break
 
@@ -263,13 +241,13 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (Posts, 
 			log.Printf(fmt.Sprintf(sqlPattern, logArgs[0], logArgs[1], logArgs[2], logArgs[3], logArgs[4]), id, id, since, limit)
 			var err error
 			if rows, err = conn.Query(sql, id, id, since, limit); err != nil {
-				return Posts{}, err
+				return models.Posts{}, err
 			}
 		} else {
 			log.Printf(fmt.Sprintf(sqlPattern, logArgs[0], logArgs[1], logArgs[2], logArgs[3], logArgs[4]), id, id, limit)
 			var err error
 			if rows, err = conn.Query(sql, id, id, limit); err != nil {
-				return Posts{}, err
+				return models.Posts{}, err
 			}
 		}
 		break
@@ -308,13 +286,13 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (Posts, 
 			log.Printf(logSql, id, since, limit)
 			var err error
 			if rows, err = conn.Query(sql, id, since, limit); err != nil {
-				return Posts{}, err
+				return models.Posts{}, err
 			}
 		} else {
 			log.Printf(logSql, id, limit)
 			var err error
 			if rows, err = conn.Query(sql, id, limit); err != nil {
-				return Posts{}, err
+				return models.Posts{}, err
 			}
 		}
 	}
@@ -322,10 +300,10 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (Posts, 
 	for rows.Next() {
 		values, err := rows.Values()
 		if err != nil {
-			return Posts{}, err
+			return models.Posts{}, err
 		}
 
-		posts = append(posts, Post{
+		posts = append(posts, models.Post{
 			ID:       opt.OInt64(values[0].(int64)),
 			Author:   values[1].(string),
 			Created:  opt.OString(values[2].(time.Time).Format(config.TimestampOutLayout)),
@@ -340,7 +318,7 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (Posts, 
 	return posts, nil
 }
 
-func CheckAllPostsInOneThread(id int32, posts Posts) (bool, error) {
+func CheckAllPostsInOneThread(id int32, posts models.Posts) (bool, error) {
 	postParents := make(map[int64]bool)
 	for _, post := range posts {
 		if post.Parent.Defined && post.Parent.V != 0 {

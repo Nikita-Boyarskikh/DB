@@ -9,32 +9,11 @@ import (
 
 	"fmt"
 
+	"github.com/Nikita-Boyarskikh/DB/models"
 	"github.com/jackc/pgx"
 	"github.com/mailru/easyjson"
 	"github.com/valyala/fasthttp"
 )
-
-//easyjson:json
-type Config struct {
-	Server struct {
-		Host                          string
-		Port                          int
-		Concurrency                   int
-		ReadBufferSize                int
-		WriteBufferSize               int
-		ReadTimeout                   int
-		WriteTimeout                  int
-		MaxRequestBodySize            int
-		LogAllErrors                  bool
-		DisableHeaderNamesNormalizing bool
-	}
-	DB struct {
-		AcquireTimeout int
-		MaxConnections int
-	}
-	TimestampOutLayout string
-	TimestampInLayout  string
-}
 
 var (
 	TimestampOutLayout string
@@ -53,7 +32,7 @@ func Init() error {
 		return err
 	}
 
-	config := Config{}
+	config := models.Config{}
 	if err := easyjson.Unmarshal(raw, &config); err != nil {
 		return err
 	}

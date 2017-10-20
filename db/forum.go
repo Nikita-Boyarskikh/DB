@@ -1,19 +1,11 @@
 package db
 
 import (
+	"github.com/Nikita-Boyarskikh/DB/models"
 	"github.com/mailru/easyjson/opt"
 )
 
-//easyjson:json
-type Forum struct {
-	Posts   opt.Int64
-	Slug    string
-	Threads opt.Int32
-	Title   string
-	User    string
-}
-
-func GetForumBySlug(slug string) (int, Forum, error) {
+func GetForumBySlug(slug string) (int, models.Forum, error) {
 	var (
 		id       int
 		posts    int64
@@ -25,10 +17,10 @@ func GetForumBySlug(slug string) (int, Forum, error) {
 	log.Printf(`SELECT id, posts, slug, threads, title, userID FROM forums WHERE slug = %s`, slug)
 	if err := conn.QueryRow(`SELECT id, posts, slug, threads, title, userID FROM forums WHERE slug = $1`, slug).
 		Scan(&id, &posts, &slug, &threads, &title, &nickname); err != nil {
-		return -1, Forum{}, err
+		return -1, models.Forum{}, err
 	}
 
-	return id, Forum{
+	return id, models.Forum{
 		Posts:   opt.OInt64(posts),
 		Slug:    slug,
 		Threads: opt.OInt32(threads),
@@ -37,7 +29,7 @@ func GetForumBySlug(slug string) (int, Forum, error) {
 	}, nil
 }
 
-func CreateForum(f Forum) (int, error) {
+func CreateForum(f models.Forum) (int, error) {
 	var id int
 	log.Printf(`INSERT INTO forums(slug, title, userID) VALUES (%s, %s, %s)`, f.Slug, f.Title, f.User)
 	if err := conn.QueryRow(`INSERT INTO forums(slug, title, userID) VALUES ($1, $2, $3) RETURNING id`,

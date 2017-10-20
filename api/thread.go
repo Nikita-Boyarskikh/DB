@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/Nikita-Boyarskikh/DB/db"
+	"github.com/Nikita-Boyarskikh/DB/models"
 	"github.com/jackc/pgx"
 	"github.com/mailru/easyjson"
 	"github.com/qiangxue/fasthttp-routing"
@@ -32,7 +33,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 			return err
 		}
 
-		json, err := easyjson.Marshal(Error{"Thread with requested slug or id is not found"})
+		json, err := easyjson.Marshal(models.Error{"Thread with requested slug or id is not found"})
 		if err != nil {
 			log.Println("\t500:\t", err)
 			return err
@@ -54,7 +55,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 
 		if _, err := db.GetThreadBySlugOrID(slug_or_id, int32(id)); err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"Thread with requested slug or ID is not found"})
+				json, err := easyjson.Marshal(models.Error{"Thread with requested slug or ID is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -71,7 +72,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 			}
 		}
 
-		var patch db.PatchThread
+		var patch models.PatchThread
 		if err := easyjson.Unmarshal(ctx.PostBody(), &patch); err != nil {
 			log.Println("\t400:\t", err)
 			ctx.SetStatusCode(fasthttp.StatusBadRequest)
@@ -105,7 +106,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 		t, err := db.GetThreadBySlugOrID(slug_or_id, int32(id))
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"Thread with requested slug or ID is not found"})
+				json, err := easyjson.Marshal(models.Error{"Thread with requested slug or ID is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -122,7 +123,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 			}
 		}
 
-		var vote db.Vote
+		var vote models.Vote
 		if err := easyjson.Unmarshal(ctx.PostBody(), &vote); err != nil {
 			log.Println("\t400:\t", err)
 			ctx.SetStatusCode(fasthttp.StatusBadRequest)
@@ -133,7 +134,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 		_, err = db.GetUserByNickname(vote.Nickname)
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"User with requested nickname is not found"})
+				json, err := easyjson.Marshal(models.Error{"User with requested nickname is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -176,7 +177,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 		t, err := db.GetThreadBySlugOrID(slug_or_id, int32(id))
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"Thread with requested slug or ID is not found"})
+				json, err := easyjson.Marshal(models.Error{"Thread with requested slug or ID is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -193,7 +194,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 			}
 		}
 
-		var posts db.Posts
+		var posts models.Posts
 		if err := easyjson.Unmarshal(ctx.PostBody(), &posts); err != nil {
 			log.Println("\t400:\t", err)
 			ctx.SetStatusCode(fasthttp.StatusBadRequest)
@@ -209,7 +210,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 		if len(nicknames) > 0 {
 			exists, _ := db.CheckAllUsersExists(nicknames)
 			if !exists {
-				json, err := easyjson.Marshal(Error{"Can't find any post authors"})
+				json, err := easyjson.Marshal(models.Error{"Can't find any post authors"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -228,7 +229,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 			log.Println("\t500:\t", err)
 			return err
 		} else if !otherThread {
-			json, err := easyjson.Marshal(Error{"Parent post was created in another thread"})
+			json, err := easyjson.Marshal(models.Error{"Parent post was created in another thread"})
 			if err != nil {
 				log.Println("\t500:\t", err)
 				return err
@@ -270,7 +271,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 		t, err := db.GetThreadBySlugOrID(slug_or_id, int32(id))
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"Thread with requested slug or ID is not found"})
+				json, err := easyjson.Marshal(models.Error{"Thread with requested slug or ID is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
@@ -313,7 +314,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 		}
 
 		if len(posts) == 0 {
-			posts = db.Posts{}
+			posts = models.Posts{}
 		}
 
 		json, err := easyjson.Marshal(posts)

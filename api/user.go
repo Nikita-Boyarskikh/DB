@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/Nikita-Boyarskikh/DB/db"
+	"github.com/Nikita-Boyarskikh/DB/models"
 	"github.com/jackc/pgx"
 	"github.com/mailru/easyjson"
 	"github.com/mailru/easyjson/opt"
@@ -15,7 +16,7 @@ func UserRouter(user *routing.RouteGroup) {
 
 		var (
 			nickname = ctx.Param("nickname")
-			user     = db.User{
+			user     = models.User{
 				Nickname: opt.OString(nickname),
 			}
 		)
@@ -69,7 +70,7 @@ func UserRouter(user *routing.RouteGroup) {
 
 		var (
 			nickname = ctx.Param("nickname")
-			user     = db.User{
+			user     = models.User{
 				Nickname: opt.OString(nickname),
 			}
 		)
@@ -83,7 +84,7 @@ func UserRouter(user *routing.RouteGroup) {
 
 		users, err := db.GetUsersByEmailAndNickname(user.Email, nickname)
 		if len(users) > 1 {
-			message, err := easyjson.Marshal(Error{"Email or nickname conflict with existing users"})
+			message, err := easyjson.Marshal(models.Error{"Email or nickname conflict with existing users"})
 			if err != nil {
 				log.Println("\t500:\t", err)
 				return err
@@ -96,7 +97,7 @@ func UserRouter(user *routing.RouteGroup) {
 			log.Println("\t409\t", string(message))
 			return nil
 		} else if len(users) == 0 {
-			message, err := easyjson.Marshal(Error{"User with requested nickname is not found"})
+			message, err := easyjson.Marshal(models.Error{"User with requested nickname is not found"})
 			if err != nil {
 				log.Println("\t500:\t", err)
 				return err
@@ -139,7 +140,7 @@ func UserRouter(user *routing.RouteGroup) {
 		user, err := db.GetUserByNickname(nickname)
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				json, err := easyjson.Marshal(Error{"Requested user is not found"})
+				json, err := easyjson.Marshal(models.Error{"Requested user is not found"})
 				if err != nil {
 					log.Println("\t500:\t", err)
 					return err
