@@ -83,14 +83,20 @@ func GetThreadBySlugOrID(slug string, ID int32) (models.Thread, error) {
 		message  string
 		title    string
 		votes    int32
+		resSlug  *string
 	)
 
-	log.Printf(`SELECT id, authorID, created AT TIME ZONE 'UTC', forumID, message, title, slug, votes FROM threads
-		WHERE slug = %s OR id = %d`, slug, ID)
-	if err := conn.QueryRow(`SELECT id, authorID, created AT TIME ZONE 'UTC', forumID, message, title, slug, votes FROM threads
-		WHERE slug = $1 OR id = $2`, slug, ID).
-		Scan(&ID, &authorID, &created, &forumID, &message, &title, &slug, &votes); err != nil {
+	log.Printf(`SELECT ID, authorID, created AT TIME ZONE 'UTC', forumID, message, title, slug, votes FROM threads
+		WHERE slug = %s OR ID = %d`, slug, ID)
+	if err := conn.QueryRow(`SELECT ID, authorID, created AT TIME ZONE 'UTC', forumID, message, title, slug, votes FROM threads
+		WHERE slug = $1 OR ID = $2`, slug, ID).
+		Scan(&ID, &authorID, &created, &forumID, &message, &title, &resSlug, &votes); err != nil {
 		return models.Thread{}, err
+	}
+
+	var optSlug opt.String
+	if resSlug != nil {
+		optSlug = opt.OString(*resSlug)
 	}
 
 	return models.Thread{
@@ -100,7 +106,7 @@ func GetThreadBySlugOrID(slug string, ID int32) (models.Thread, error) {
 		Created: opt.OString(created.Format(config.TimestampOutLayout)),
 		Message: message,
 		Title:   title,
-		Slug:    opt.OString(slug),
+		Slug:    optSlug,
 		Votes:   opt.OInt32(votes),
 	}, nil
 }
