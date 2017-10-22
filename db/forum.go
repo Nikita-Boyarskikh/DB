@@ -14,7 +14,6 @@ func GetForumBySlug(slug string) (int, models.Forum, error) {
 		nickname string
 	)
 
-	log.Printf(`SELECT id, posts, slug, threads, title, userID FROM forums WHERE slug = %s`, slug)
 	if err := conn.QueryRow(`SELECT id, posts, slug, threads, title, userID FROM forums WHERE slug = $1`, slug).
 		Scan(&id, &posts, &slug, &threads, &title, &nickname); err != nil {
 		return -1, models.Forum{}, err
@@ -31,7 +30,6 @@ func GetForumBySlug(slug string) (int, models.Forum, error) {
 
 func CreateForum(f models.Forum) (int, error) {
 	var id int
-	log.Printf(`INSERT INTO forums(slug, title, userID) VALUES (%s, %s, %s)`, f.Slug, f.Title, f.User)
 	if err := conn.QueryRow(`INSERT INTO forums(slug, title, userID) VALUES ($1, $2, $3) RETURNING id`,
 		f.Slug, f.Title, f.User).Scan(&id); err != nil {
 		return id, err

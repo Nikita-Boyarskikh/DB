@@ -1,21 +1,8 @@
 package api
 
-import (
-	stdlog "log"
+import "github.com/qiangxue/fasthttp-routing"
 
-	"github.com/Nikita-Boyarskikh/DB/logger"
-	"github.com/qiangxue/fasthttp-routing"
-)
-
-var (
-	router *routing.Router
-	log    stdlog.Logger
-)
-
-func Init() {
-	log = logger.GetLogger()
-	log.SetPrefix("API:")
-}
+var router *routing.Router
 
 func Routing(router *routing.Router) *routing.Router {
 	api := router.Group("/api")
@@ -35,13 +22,6 @@ func Routing(router *routing.Router) *routing.Router {
 	UserRouter(user)
 
 	return router
-}
-
-func logApi(ctx *routing.Context) {
-	log.Printf("%s %s from %s", ctx.Method(), ctx.URI(), ctx.RemoteIP())
-	if ctx.IsPost() {
-		log.Printf("\tPost data: '%s'", ctx.PostBody())
-	}
 }
 
 func GetRouter() *routing.Router {

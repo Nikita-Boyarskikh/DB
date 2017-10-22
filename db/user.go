@@ -20,12 +20,10 @@ func UpdateUser(u models.User) (models.User, error) {
 	)
 	if !u.Nickname.Defined {
 		message := "User nickname id not defined"
-		log.Println(message)
 		return models.User{}, errors.New(message)
 	}
 
 	if u.Fullname == "" && u.Email == "" && about == "" {
-		log.Printf(`SELECT nickname, fullname, email, about FROM users WHERE nickname = %s`, nickname)
 		if err := conn.QueryRow(
 			`SELECT nickname, fullname, email, about FROM users WHERE nickname = $1`, nickname,
 		).Scan(&nickname, &result.Fullname, &result.Email, &about); err != nil {
@@ -33,7 +31,6 @@ func UpdateUser(u models.User) (models.User, error) {
 		}
 	} else {
 		if u.Fullname == "" && u.Email == "" {
-			log.Printf(`UPDATE users SET about = %s WHERE nickname = %s`, about, nickname)
 			if err := conn.QueryRow(`UPDATE users SET about = $1 WHERE nickname = $2
 				RETURNING nickname, fullname, email, about`, about, nickname).
 				Scan(&nickname, &result.Fullname, &result.Email, &about); err != nil {
@@ -42,8 +39,6 @@ func UpdateUser(u models.User) (models.User, error) {
 		} else {
 			if u.Fullname == "" {
 				if about == "" {
-					log.Printf(`UPDATE users SET email = %s WHERE nickname = %s`,
-						u.Email, nickname)
 					if err := conn.QueryRow(`UPDATE users SET email = $1 WHERE nickname = $2
 				RETURNING nickname, fullname, email, about`,
 						u.Email, nickname).
@@ -51,8 +46,6 @@ func UpdateUser(u models.User) (models.User, error) {
 						return models.User{}, err
 					}
 				} else {
-					log.Printf(`UPDATE users SET email = %s, about = %s WHERE nickname = %s`,
-						u.Email, about, nickname)
 					if err := conn.QueryRow(`UPDATE users SET email = $1, about = $2 WHERE nickname = $3
 				RETURNING nickname, fullname, email, about`,
 						u.Email, about, nickname).
@@ -63,8 +56,6 @@ func UpdateUser(u models.User) (models.User, error) {
 			} else {
 				if about == "" {
 					if u.Email == "" {
-						log.Printf(`UPDATE users SET fullname = %s WHERE nickname = %s`,
-							u.Fullname, nickname)
 						if err := conn.QueryRow(`UPDATE users SET fullname = $1 WHERE nickname = $2
 				RETURNING nickname, fullname, email, about`,
 							u.Fullname, nickname).
@@ -72,8 +63,6 @@ func UpdateUser(u models.User) (models.User, error) {
 							return models.User{}, err
 						}
 					} else {
-						log.Printf(`UPDATE users SET fullname = %s, email = %s WHERE nickname = %s`,
-							u.Fullname, u.Email, nickname)
 						if err := conn.QueryRow(`UPDATE users SET fullname = $1, email = $2 WHERE nickname = $3
 				RETURNING nickname, fullname, email, about`,
 							u.Fullname, u.Email, nickname).
@@ -83,8 +72,6 @@ func UpdateUser(u models.User) (models.User, error) {
 					}
 				} else {
 					if u.Email == "" {
-						log.Printf(`UPDATE users SET fullname = %s, about = %s WHERE nickname = %s`,
-							u.Fullname, about, nickname)
 						if err := conn.QueryRow(`UPDATE users SET fullname = $1, about = $2 WHERE nickname = $3
 				RETURNING nickname, fullname, email, about`,
 							u.Fullname, about, nickname).
@@ -92,8 +79,6 @@ func UpdateUser(u models.User) (models.User, error) {
 							return models.User{}, err
 						}
 					} else {
-						log.Printf(`UPDATE users SET fullname = %s, email = %s, about = %s WHERE nickname = %s`,
-							u.Fullname, u.Email, about, nickname)
 						if err := conn.QueryRow(`UPDATE users SET fullname = $1, email = $2, about = $3 WHERE nickname = $4
 				RETURNING nickname, fullname, email, about`,
 							u.Fullname, u.Email, about, nickname).
@@ -114,8 +99,6 @@ func UpdateUser(u models.User) (models.User, error) {
 func CreateUser(u models.User) error {
 	about := opt2string(u.About, "")
 
-	log.Printf(`INSERT INTO users(nickname, fullname, email, about) VALUES (%s, %s, %s, %s)`,
-		u.Nickname.V, u.Fullname, u.Email, u.About)
 	if _, err := conn.Exec(
 		`INSERT INTO users(nickname, fullname, email, about) VALUES ($1, $2, $3, $4)`,
 		u.Nickname.V, u.Fullname, u.Email, about); err != nil {
@@ -133,7 +116,6 @@ func GetUserByNickname(nickname string) (models.User, error) {
 		about    string
 	)
 
-	log.Printf(`SELECT nickname, fullname, email, about FROM users WHERE nickname = %s`, nickname)
 	if err := conn.QueryRow(
 		`SELECT nickname, fullname, email, about FROM users WHERE nickname = $1`, nickname).
 		Scan(&nickname, &fullname, &email, &about); err != nil {
@@ -149,9 +131,6 @@ func GetUserByNickname(nickname string) (models.User, error) {
 }
 
 func GetUsersByEmailAndNickname(email, nickname string) (models.Users, error) {
-	log.Printf(
-		`SELECT nickname, fullname, email, about FROM users WHERE email = %s OR nickname = %s`,
-		email, nickname)
 	rows, err := conn.Query(
 		`SELECT nickname, fullname, email, about FROM users WHERE email = $1 OR nickname = $2`,
 		email, nickname)
@@ -188,7 +167,6 @@ func CheckAllUsersExists(nicknames []string) (bool, error) {
 		uniqNicknames = append(uniqNicknames, n)
 	}
 
-	log.Printf(`SELECT COUNT(nickname) FROM users WHERE nickname IN (%s)`, strings.Join(uniqNicknames, ", "))
 	err := conn.QueryRow(fmt.Sprintf(`SELECT COUNT(nickname) FROM users WHERE nickname IN ('%s')`,
 		strings.Join(uniqNicknames, "', '"))).Scan(&count)
 	if err != nil {
@@ -227,7 +205,6 @@ func GetUsersByForumSlug(slug string, since string, limit int, desc bool) (model
 	}
 
 	sql := fmt.Sprintf(sqlPattern, args[0], args[1])
-	log.Printf(sql)
 	rows, err := conn.Query(sql)
 	if err != nil {
 		return models.Users{}, err

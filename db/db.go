@@ -1,22 +1,13 @@
 package db
 
 import (
-	stdlog "log"
-
-	"github.com/Nikita-Boyarskikh/DB/logger"
 	"github.com/jackc/pgx"
 	"github.com/mailru/easyjson/opt"
 )
 
-var (
-	conn *pgx.ConnPool
-	log stdlog.Logger
-)
+var conn *pgx.ConnPool
 
 func Init(config pgx.ConnPoolConfig) error {
-	log = logger.GetLogger()
-	log.SetPrefix("DB:")
-
 	var err error
 	conn, err = pgx.NewConnPool(config)
 	if err != nil {

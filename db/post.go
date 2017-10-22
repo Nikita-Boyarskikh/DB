@@ -5,7 +5,6 @@ import (
 
 	"github.com/Nikita-Boyarskikh/DB/config"
 	"github.com/jackc/pgx"
-	//"github.com/jackc/pgx/pgtype"
 
 	"strconv"
 	"strings"
@@ -17,23 +16,19 @@ import (
 )
 
 func CreatePostsInThread(forum string, thread int32, posts models.Posts) (models.Posts, error) {
-	logSql := `INSERT INTO posts(ID, authorID, forumID, message, parentID, threadID, parents) VALUES `
-	sql := logSql
+	sql := `INSERT INTO posts(ID, authorID, forumID, message, parentID, threadID, parents) VALUES `
 
 	var (
-		args               []interface{}
-		ID                 int64
-		sqlPlaceholders    []string
-		logSqlPlaceholders []string
-		err                error
+		args            []interface{}
+		ID              int64
+		sqlPlaceholders []string
+		err             error
 	)
 	for count, post := range posts {
 		if err := conn.QueryRow(`SELECT nextval('posts_id_seq')`).Scan(&ID); err != nil {
 			return models.Posts{}, nil
 		}
 
-		logSqlPlaceholders = append(logSqlPlaceholders,
-			`(%s, %s, %s, %d, %d, (SELECT parents FROM posts WHERE ID = $5) || %s)`)
 		numargs := 7
 		sqlPlaceholders = append(sqlPlaceholders, "($"+strings.Join([]string{
 			strconv.Itoa(count*numargs + 1), strconv.Itoa(count*numargs + 2),
@@ -50,7 +45,6 @@ func CreatePostsInThread(forum string, thread int32, posts models.Posts) (models
 		return models.Posts{}, nil
 	}
 
-	log.Printf(logSql+strings.Join(logSqlPlaceholders, ", "), args...)
 	rows, err := conn.Query(sql+strings.Join(sqlPlaceholders, ", ")+
 		` RETURNING ID, created AT TIME ZONE 'UTC'`, args...)
 	if err != nil {
@@ -95,7 +89,6 @@ func UpdatePostMessage(id int64, message string, edited bool) (models.Post, erro
 		thread  int32
 	)
 
-	log.Printf(`UPDATE posts SET message=%s, isEdited=%+v WHERE ID=%d`, message, edited, id)
 	if err := conn.QueryRow(`UPDATE posts SET message=$1, isEdited=$2 WHERE ID=$3
 			RETURNING authorID, created AT TIME ZONE 'UTC', forumID, parentID, threadID`, message, edited, id).
 		Scan(&post.Author, &created, &forum, &parent, &thread); err != nil {
@@ -123,8 +116,6 @@ func GetPost(id int64) (models.Post, error) {
 		thread  int32
 	)
 
-	log.Printf(`SELECT authorID, created AT TIME ZONE 'UTC', forumID, isEdited, parentID, threadID FROM posts
-		WHERE id=%d`, id)
 	if err := conn.QueryRow(`SELECT authorID, created AT TIME ZONE 'UTC', forumID, isEdited, message, parentID, threadID FROM posts
 		WHERE id=$1`, id).
 		Scan(&post.Author, &created, &forum, &edited, &post.Message, &parent, &thread); err != nil {
@@ -149,14 +140,11 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.
 
 	switch sort {
 	case "tree":
-		logSqlPattern := `SELECT ID, authorID, created AT TIME ZONE 'UTC', forumID, isEdited, message, parentID FROM posts
-		WHERE threadID=%%d %s ORDER BY parents %s`
 		sqlPattern := `SELECT ID, authorID, created AT TIME ZONE 'UTC', forumID, isEdited, message, parentID FROM posts
 		WHERE threadID=$1 %s ORDER BY parents %s`
 
 		var (
 			parents string
-			logSql  string
 			sql     string
 		)
 		if since < 1 {
@@ -170,14 +158,11 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.
 		}
 
 		if desc {
-			logSql = fmt.Sprintf(logSqlPattern, parents, ` DESC LIMIT %d`)
 			sql = fmt.Sprintf(sqlPattern, parents, ` DESC LIMIT $2`)
 		} else {
-			logSql = fmt.Sprintf(logSqlPattern, parents, ` LIMIT %d`)
 			sql = fmt.Sprintf(sqlPattern, parents, ` LIMIT $2`)
 		}
 
-		log.Printf(logSql, id, limit)
 		var err error
 		if rows, err = conn.Query(sql, id, limit); err != nil {
 			return models.Posts{}, err
@@ -185,10 +170,7 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.
 		break
 
 	case "parent_tree":
-		logArgs := make([]string, 5)
 		args := make([]string, 5)
-		logArgs[0] = "%d"
-		logArgs[1] = "%d"
 		args[0] = "$1"
 		args[1] = "$2"
 
@@ -203,48 +185,36 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.
 		if desc {
 			if since > 0 {
 				args[2] = "AND parents[1] <"
-				logArgs[2] = "AND parents[1] <"
 			}
-			logArgs[3] = `DESC`
 			args[3] = `DESC`
-			logArgs[4] = `DESC`
 			args[4] = `DESC`
 		} else {
 			if since > 0 {
 				args[2] = "AND parents[1] >"
-				logArgs[2] = "AND parents[1] >"
 			}
-			logArgs[3] = `ASC`
 			args[3] = `ASC`
-			logArgs[4] = `ASC`
 			args[4] = `ASC`
 		}
 
 		if since > 0 {
 			args[2] += ` (SELECT parents[1] FROM posts WHERE ID = $` + strconv.Itoa(count) + `)`
-			logArgs[2] += ` (SELECT parents[1] FROM posts WHERE ID = %d)`
 			count++
 		} else {
 			args[2] = ""
-			logArgs[2] = ""
 		}
 
 		if limit != -1 {
 			args[3] += ` LIMIT $` + strconv.Itoa(count)
-			logArgs[3] += ` LIMIT %d`
 		}
 
 		sql := fmt.Sprintf(sqlPattern, args[0], args[1], args[2], args[3], args[4])
 
-		log.Println(sql)
 		if since > 0 {
-			log.Printf(fmt.Sprintf(sqlPattern, logArgs[0], logArgs[1], logArgs[2], logArgs[3], logArgs[4]), id, id, since, limit)
 			var err error
 			if rows, err = conn.Query(sql, id, id, since, limit); err != nil {
 				return models.Posts{}, err
 			}
 		} else {
-			log.Printf(fmt.Sprintf(sqlPattern, logArgs[0], logArgs[1], logArgs[2], logArgs[3], logArgs[4]), id, id, limit)
 			var err error
 			if rows, err = conn.Query(sql, id, id, limit); err != nil {
 				return models.Posts{}, err
@@ -255,41 +225,32 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.
 	default: // flat
 		var (
 			sinceSql    string
-			logSinceSql string
 			count       = 2
 		)
 		if since > 0 {
 			if desc {
 				sinceSql = " AND ID < $" + strconv.Itoa(count)
-				logSinceSql = " AND ID < %d"
 			} else {
 				sinceSql = " AND ID > $" + strconv.Itoa(count)
-				logSinceSql = " AND ID < %d"
 			}
 			count++
 		}
 
-		logSql := `SELECT ID, authorID, created AT TIME ZONE 'UTC', forumID, isEdited, message, parentID FROM posts
-		WHERE threadID=%d ` + logSinceSql + ` ORDER BY (created, ID)`
 		sql := `SELECT ID, authorID, created AT TIME ZONE 'UTC', forumID, isEdited, message, parentID FROM posts
 		WHERE threadID=$1 ` + sinceSql + ` ORDER BY (created, ID)`
 
 		if desc {
-			logSql += ` DESC LIMIT %d`
 			sql += ` DESC LIMIT $` + strconv.Itoa(count)
 		} else {
-			logSql += ` LIMIT %d`
 			sql += ` LIMIT $` + strconv.Itoa(count)
 		}
 
 		if since > 0 {
-			log.Printf(logSql, id, since, limit)
 			var err error
 			if rows, err = conn.Query(sql, id, since, limit); err != nil {
 				return models.Posts{}, err
 			}
 		} else {
-			log.Printf(logSql, id, limit)
 			var err error
 			if rows, err = conn.Query(sql, id, limit); err != nil {
 				return models.Posts{}, err
@@ -337,7 +298,6 @@ func CheckAllPostsInOneThread(id int32, posts models.Posts) (bool, error) {
 
 	format := `SELECT threadID FROM posts WHERE ID IN (%s)`
 	sql := fmt.Sprintf(format, strings.Join(parentIDs, ", "))
-	log.Println(sql)
 	rows, err := conn.Query(sql)
 	if err != nil {
 		return false, err

@@ -14,8 +14,6 @@ import (
 
 func PostRouter(post *routing.RouteGroup) {
 	post.Post("/<id>/details", func(ctx *routing.Context) error {
-		logApi(ctx)
-
 		strId := ctx.Param("id")
 		intId, _ := strconv.Atoi(strId)
 		id := int64(intId)
@@ -25,24 +23,20 @@ func PostRouter(post *routing.RouteGroup) {
 			if err == pgx.ErrNoRows {
 				json, err := easyjson.Marshal(models.Error{"Post with requested ID is not found"})
 				if err != nil {
-					log.Println("\t500:\t", err)
 					return err
 				}
 
 				ctx.SetStatusCode(fasthttp.StatusNotFound)
 				ctx.SetContentType("application/json")
 				ctx.SetBody(json)
-				log.Println("\t404\t", string(json))
 				return nil
 			} else {
-				log.Println("\t500:\t", err)
 				return err
 			}
 		}
 
 		var editPost models.EditPost
 		if err := easyjson.Unmarshal(ctx.PostBody(), &editPost); err != nil {
-			log.Println("\t400:\t", err)
 			ctx.SetStatusCode(fasthttp.StatusBadRequest)
 			ctx.WriteData(err.Error())
 			return nil
@@ -52,31 +46,25 @@ func PostRouter(post *routing.RouteGroup) {
 		if editPost.Message.Defined {
 			post, err = db.UpdatePostMessage(id, editPost.Message.V, editPost.Message.V != exPost.Message)
 			if err != nil {
-				log.Println("\t500:\t", err)
 				return err
 			}
 		} else {
 			post, err = db.GetPost(id)
 			if err != nil {
-				log.Println("\t500:\t", err)
 				return err
 			}
 		}
 
 		json, err := easyjson.Marshal(post)
 		if err != nil {
-			log.Println("\t500:\t", err)
 			return err
 		}
 
 		ctx.Success("application/json", json)
-		log.Println("\t200\t", string(json))
 		return nil
 	})
 
 	post.Get("/<id>/details", func(ctx *routing.Context) error {
-		logApi(ctx)
-
 		strId := ctx.Param("id")
 		intId, _ := strconv.Atoi(strId)
 		id := int64(intId)
@@ -86,17 +74,14 @@ func PostRouter(post *routing.RouteGroup) {
 			if err == pgx.ErrNoRows {
 				json, err := easyjson.Marshal(models.Error{"Post with requested ID is not found"})
 				if err != nil {
-					log.Println("\t500:\t", err)
 					return err
 				}
 
 				ctx.SetStatusCode(fasthttp.StatusNotFound)
 				ctx.SetContentType("application/json")
 				ctx.SetBody(json)
-				log.Println("\t404\t", string(json))
 				return nil
 			} else {
-				log.Println("\t500:\t", err)
 				return err
 			}
 		}
@@ -134,12 +119,10 @@ func PostRouter(post *routing.RouteGroup) {
 			Forum:  forum,
 		})
 		if err != nil {
-			log.Println("\t500:\t", err)
 			return err
 		}
 
 		ctx.Success("application/json", json)
-		log.Println("\t200\t", string(json))
 		return nil
 	})
 }
