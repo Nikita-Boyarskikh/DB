@@ -156,7 +156,7 @@ func UpdateThreadBySlugOrID(slugOrID string, t models.PatchThread) (models.Threa
 		ID      int32
 		created time.Time
 		forumID string
-		slug    string
+		slug    *string
 		votes   int32
 	)
 
@@ -203,10 +203,15 @@ func UpdateThreadBySlugOrID(slugOrID string, t models.PatchThread) (models.Threa
 		return result, nil
 	}
 
+	var optSlug opt.String
+	if slug != nil {
+		optSlug = opt.OString(*slug)
+	}
+
 	result.ID = opt.OInt32(ID)
 	result.Created = opt.OString(created.Format(config.TimestampOutLayout))
 	result.Forum = opt.OString(forumID)
-	result.Slug = opt.OString(slug)
+	result.Slug = optSlug
 	result.Votes = opt.OInt32(votes)
 
 	return result, nil
@@ -218,7 +223,7 @@ func VoteForThread(ID int32, vote models.Vote) (models.Thread, error) {
 		result  models.Thread
 		created time.Time
 		forumID string
-		slug    string
+		slug    *string
 		votes   int32
 		voice   int32
 	)
@@ -263,10 +268,14 @@ func VoteForThread(ID int32, vote models.Vote) (models.Thread, error) {
 		}
 	}
 
+	var optSlug opt.String
+	if slug != nil {
+		optSlug = opt.OString(*slug)
+	}
 	result.ID = opt.OInt32(ID)
 	result.Created = opt.OString(created.Format(config.TimestampOutLayout))
 	result.Forum = opt.OString(forumID)
-	result.Slug = opt.OString(slug)
+	result.Slug = optSlug
 	result.Votes = opt.OInt32(votes)
 
 	return result, nil
