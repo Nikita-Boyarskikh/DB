@@ -25,5 +25,7 @@ func main() {
 	}
 	defer db.Close()
 
-	s.ListenAndServe(config.URI)
+	if s.ListenAndServe(config.URI) != nil {
+		os.Exit(1)
+	}
 }

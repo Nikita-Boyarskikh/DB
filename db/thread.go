@@ -125,6 +125,10 @@ func GetThreadsBySlug(slug string, limit int, since time.Time, desc bool) (model
 			return models.Threads{}, err
 		}
 
+		if vals[6] == nil {
+			vals[6] = ""
+		}
+
 		threads = append(threads, models.Thread{
 			ID:      opt.OInt32(vals[0].(int32)),
 			Author:  vals[1].(string),
