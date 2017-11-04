@@ -1,0 +1,15 @@
+#!/bin/bash
+psql -U forums -d forums_db -f assets/sql/create.sql && \
+GOROOT=/usr/local/Cellar/go/1.9/libexec \
+GOPATH=/Users/boyanik/GoglandProjects \
+/usr/local/Cellar/go/1.9/libexec/bin/go build -i -o /private/var/folders/h4/3bc9_j855v945x6d7_5rxxgm0000gn/T/___main_go /Users/boyanik/GoglandProjects/src/github.com/Nikita-Boyarskikh/DB/main.go &&\
+PGHOST='localhost' PGUSER='forums' PGPORT=5432 PGDATABASE='forums_db' PGPASSWORD='forums_admin_pass' /private/var/folders/h4/3bc9_j855v945x6d7_5rxxgm0000gn/T/___main_go &
+tech-db-forum func &&\
+tech-db-forum fill &&\
+tech-db-forum perf &&\
+ps ax | grep '/private/var/folders/h4/3bc9_j855v945x6d7_5rxxgm0000gn/T/___main_go' | grep -v 'grep' | awk '{print $1}' | xargs kill &&
+brew services restart postgresql &&\
+~/Downloads/pgbadger-9.2/pgbadger /usr/local/var/log/postgres.log &&\
+/Applications/Yandex.app/Contents/MacOS/Yandex out.html &&\
+rm /usr/local/var/log/postgres.log &&\
+touch /usr/local/var/log/postgres.log
