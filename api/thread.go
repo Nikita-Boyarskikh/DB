@@ -7,6 +7,7 @@ import (
 	"github.com/Nikita-Boyarskikh/DB/models"
 	"github.com/jackc/pgx"
 	"github.com/mailru/easyjson"
+	"github.com/mailru/easyjson/opt"
 	"github.com/qiangxue/fasthttp-routing"
 	"github.com/valyala/fasthttp"
 )
@@ -168,9 +169,19 @@ func ThreadRouter(thread *routing.RouteGroup) {
 			return nil
 		}
 
-		var nicknames []string
+		var (
+			nicknames           []string
+			parents             []int64
+			parentsWithoutZeros []string
+		)
 		for _, post := range posts {
 			nicknames = append(nicknames, post.Author)
+			if !post.Parent.Defined {
+				post.Parent = opt.OInt64(0)
+			} else {
+				parentsWithoutZeros = append(parentsWithoutZeros, strconv.FormatInt(post.Parent.V, 10))
+			}
+			parents = append(parents, post.Parent.V)
 		}
 
 		if len(nicknames) > 0 {
@@ -203,7 +214,7 @@ func ThreadRouter(thread *routing.RouteGroup) {
 			return nil
 		}
 
-		createdPosts, err := db.CreatePostsInThread(t.Forum.V, t.ID.V, posts)
+		createdPosts, err := db.CreatePostsInThread(t.Forum.V, t.ID.V, posts, parents, parentsWithoutZeros)
 		if err != nil {
 			return err
 		}

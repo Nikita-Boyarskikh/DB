@@ -1,3 +1,5 @@
+SET WORK_MEM = '1GB';
+
 CREATE TABLE IF NOT EXISTS users (
   nickname CITEXT CONSTRAINT pk__users_nickname PRIMARY KEY,
   fullname TEXT,
@@ -68,5 +70,3 @@ CREATE INDEX IF NOT EXISTS idx__posts_parentID
   ON posts (parentID);
 CREATE INDEX IF NOT EXISTS idx__posts_created
   ON posts (created);
-CREATE INDEX IF NOT EXISTS idx__posts_parents
-  ON posts (parents);

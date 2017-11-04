@@ -17,4 +17,3 @@ DROP INDEX IF EXISTS idx__posts_authorID;
 DROP INDEX IF EXISTS idx__posts_threadID;
 DROP INDEX IF EXISTS idx__posts_parentID;
 DROP INDEX IF EXISTS idx__posts_created;
-DROP INDEX IF EXISTS idx__posts_parents;

@@ -156,7 +156,6 @@ func GetUsersByEmailAndNickname(email, nickname string) (models.Users, error) {
 }
 
 func CheckAllUsersExists(nicknames []string) (bool, error) {
-	count := 0
 	uniqNicknamesMap := make(map[string]bool)
 	for _, n := range nicknames {
 		uniqNicknamesMap[n] = true
@@ -167,13 +166,13 @@ func CheckAllUsersExists(nicknames []string) (bool, error) {
 		uniqNicknames = append(uniqNicknames, n)
 	}
 
-	err := conn.QueryRow(fmt.Sprintf(`SELECT COUNT(nickname) FROM users WHERE nickname IN ('%s')`,
-		strings.Join(uniqNicknames, "', '"))).Scan(&count)
+	tag, err := conn.Exec(fmt.Sprintf(`SELECT nickname FROM users WHERE nickname IN ('%s')`,
+		strings.Join(uniqNicknames, "', '")))
 	if err != nil {
 		return false, err
 	}
 
-	return count == len(uniqNicknames), nil
+	return tag.RowsAffected() == int64(len(uniqNicknames)), nil
 }
 
 func GetUsersByForumSlug(slug string, since string, limit int, desc bool) (models.Users, error) {

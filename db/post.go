@@ -11,22 +11,57 @@ import (
 
 	"fmt"
 
+	"errors"
+
 	"github.com/Nikita-Boyarskikh/DB/models"
+	"github.com/jackc/pgx/pgtype"
 	"github.com/mailru/easyjson/opt"
 )
 
-func CreatePostsInThread(forum string, thread int32, posts models.Posts) (models.Posts, error) {
+func CreatePostsInThread(forum string, thread int32,
+	posts models.Posts, parents []int64, parentsWithoutZeros []string) (models.Posts, error) {
 	sql := `INSERT INTO posts(ID, authorID, forumID, message, parentID, threadID, parents) VALUES `
 
 	var (
 		args            []interface{}
-		ID              int64
 		sqlPlaceholders []string
 		err             error
+		parentsMap      = make(map[int64][]int64)
+	)
+
+	if len(parentsWithoutZeros) > 0 {
+		rows, err := conn.Query("SELECT ID, parents FROM posts WHERE ID IN (" +
+			strings.Join(parentsWithoutZeros, ", ") + ")")
+		if err != nil {
+			return models.Posts{}, err
+		}
+
+		for rows.Next() {
+			vals, err := rows.Values()
+			if err != nil {
+				return models.Posts{}, err
+			}
+
+			elems := make([]int64, len(vals[1].(*pgtype.Int8Array).Elements))
+			for i, el := range vals[1].(*pgtype.Int8Array).Elements {
+				if el.Status != pgtype.Present {
+					return models.Posts{}, errors.New("wrong parents elements status")
+				}
+
+				elems[i] = el.Int
+			}
+
+			parentsMap[vals[0].(int64)] = elems
+		}
+	}
+
+	var (
+		ID  int64
+		ids []int64
 	)
 	for count, post := range posts {
-		if err := conn.QueryRow(`SELECT nextval('posts_id_seq')`).Scan(&ID); err != nil {
-			return models.Posts{}, nil
+		if err := conn.QueryRow("SELECT nextval('posts_id_seq')").Scan(&ID); err != nil {
+			return models.Posts{}, err
 		}
 
 		numargs := 7
@@ -34,11 +69,12 @@ func CreatePostsInThread(forum string, thread int32, posts models.Posts) (models
 			strconv.Itoa(count*numargs + 1), strconv.Itoa(count*numargs + 2),
 			strconv.Itoa(count*numargs + 3), strconv.Itoa(count*numargs + 4),
 			strconv.Itoa(count*numargs + 5), strconv.Itoa(count*numargs + 6),
-		}, ", $")+
-			", (SELECT parents FROM posts WHERE ID = $"+strconv.Itoa(count*numargs+5)+
-			") || $"+strconv.Itoa(count*numargs+7)+")")
+			strconv.Itoa(count*numargs + 7),
+		}, ", $")+")")
 
-		args = append(args, ID, post.Author, forum, post.Message, post.Parent.V, thread, []int64{ID})
+		resParents := append(parentsMap[parents[count]], ID)
+		ids = append(ids, ID)
+		args = append(args, ID, post.Author, forum, post.Message, post.Parent.V, thread, resParents)
 	}
 
 	if len(args) == 0 {
@@ -46,7 +82,7 @@ func CreatePostsInThread(forum string, thread int32, posts models.Posts) (models
 	}
 
 	rows, err := conn.Query(sql+strings.Join(sqlPlaceholders, ", ")+
-		` RETURNING ID, created AT TIME ZONE 'UTC'`, args...)
+		` RETURNING created AT TIME ZONE 'UTC'`, args...)
 	if err != nil {
 		return models.Posts{}, err
 	}
@@ -60,9 +96,9 @@ func CreatePostsInThread(forum string, thread int32, posts models.Posts) (models
 		}
 
 		post := models.Post{
-			ID:       opt.OInt64(values[0].(int64)),
+			ID:       opt.OInt64(ids[i]),
 			Author:   posts[i].Author,
-			Created:  opt.OString(values[1].(time.Time).Format(config.TimestampOutLayout)),
+			Created:  opt.OString(values[0].(time.Time).Format(config.TimestampOutLayout)),
 			Forum:    opt.OString(forum),
 			IsEdited: opt.OBool(false),
 			Message:  posts[i].Message,
@@ -224,8 +260,8 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.
 
 	default: // flat
 		var (
-			sinceSql    string
-			count       = 2
+			sinceSql string
+			count    = 2
 		)
 		if since > 0 {
 			if desc {
