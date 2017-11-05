@@ -46,6 +46,12 @@ CREATE TABLE IF NOT EXISTS voices (
   CONSTRAINT pk__voices_threadID_userID PRIMARY KEY (threadID, userID)
 );
 
+CREATE TABLE IF NOT EXISTS forum_users (
+  forumID CITEXT,
+  userID CITEXT,
+  CONSTRAINT pk__forum_users_forumID_userID PRIMARY KEY (forumID, userID)
+);
+
 CREATE INDEX IF NOT EXISTS idx__users_email
   ON users (email);
 
@@ -70,3 +76,5 @@ CREATE INDEX IF NOT EXISTS idx__posts_parentID
   ON posts (parentID);
 CREATE INDEX IF NOT EXISTS idx__posts_created
   ON posts (created);
+CREATE INDEX IF NOT EXISTS idx__posts_ID_threadID_parentID
+  ON posts (id, threadid, parentid);

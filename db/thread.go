@@ -58,8 +58,8 @@ func CreateThread(t models.Thread) (models.Thread, error) {
 	t.Votes = opt.OInt32(0)
 	t.Created = opt.OString(created.Format(config.TimestampOutLayout))
 	t.ID = opt.OInt32(id)
-	if err := NewThread(t.Forum.V); err != nil {
-		return models.Thread{}, nil
+	if err := NewThread(t.Forum.V, t.Author); err != nil {
+		return models.Thread{}, err
 	}
 	return t, nil
 }

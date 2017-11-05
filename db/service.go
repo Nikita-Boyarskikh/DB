@@ -3,6 +3,9 @@ package db
 import (
 	"fmt"
 
+	"sort"
+	"strings"
+
 	"github.com/Nikita-Boyarskikh/DB/models"
 	"github.com/jackc/pgx"
 )
@@ -78,19 +81,31 @@ func NewForum() {
 	status.Forum++
 }
 
-func NewThread(slug string) error {
-	sql := `UPDATE forums SET threads = threads + 1 WHERE slug = `
-	if _, err := conn.Exec(sql+"$1", slug); err != nil {
+func NewThread(forumID string, userID string) error {
+	if _, err := conn.Exec(`UPDATE forums SET threads = threads + 1 WHERE slug = $1`, forumID); err != nil {
 		return err
 	}
+
+	if _, err := conn.Exec(`INSERT INTO forum_users (forumID, userID) VALUES ($1, $2) ON CONFLICT DO NOTHING`, forumID, userID); err != nil {
+		return err
+	}
+
 	status.Thread++
 	return nil
 }
 
 func NewPosts(posts models.Posts) error {
 	postsCount := make(map[string]int)
-	for _, post := range posts {
+	args := make([]interface{}, len(posts)*2)
+	sqlArgs := make([]string, len(posts))
+	sortedPosts := make(models.Posts, len(posts))
+	copy(sortedPosts, posts)
+	sort.Sort(sortedPosts)
+	for i, post := range sortedPosts {
 		postsCount[post.Forum.V]++
+		args[2*i] = post.Forum.V
+		args[2*i+1] = post.Author
+		sqlArgs[i] = fmt.Sprintf(`($%d, $%d)`, 2*i+1, 2*i+2)
 	}
 
 	for slug, n := range postsCount {
@@ -98,6 +113,11 @@ func NewPosts(posts models.Posts) error {
 		if _, err := conn.Exec(sql, n, slug); err != nil {
 			return err
 		}
+	}
+
+	sql := `INSERT INTO forum_users (forumID, userID) VALUES %s ON CONFLICT DO NOTHING`
+	if _, err := conn.Exec(fmt.Sprintf(sql, strings.Join(sqlArgs, ", ")), args...); err != nil {
+		return err
 	}
 
 	status.Post += int64(len(posts))

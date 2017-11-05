@@ -176,19 +176,18 @@ func CheckAllUsersExists(nicknames []string) (bool, error) {
 }
 
 func GetUsersByForumSlug(slug string, since string, limit int, desc bool) (models.Users, error) {
-	sqlPattern := `SELECT u.nickname, u.fullname, u.email, u.about FROM (
-		SELECT authorID, forumID FROM posts UNION SELECT authorID, forumID FROM threads
-	) AS ids JOIN users AS u ON (ids.authorID = u.nickname) WHERE ids.forumID = %s ORDER BY u.nickname %s`
+	sqlPattern := `SELECT u.nickname, u.fullname, u.email, u.about FROM forum_users AS fu
+		JOIN users AS u ON (u.nickname = fu.userID) WHERE fu.forumID = %s ORDER BY u.nickname %s`
 
 	args := make([]string, 2)
 	args[0] = "'" + slug + "'"
 
 	if since != "" {
 		if desc {
-			args[0] += " AND nickname < '" + since + "'"
+			args[0] += " AND u.nickname < '" + since + "'"
 			args[1] = "DESC"
 		} else {
-			args[0] += " AND nickname > '" + since + "'"
+			args[0] += " AND u.nickname > '" + since + "'"
 			args[1] = "ASC"
 		}
 	} else {
