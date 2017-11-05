@@ -89,6 +89,8 @@ fabric.properties
 ################################################
 
 report.html
+tech-db-forum.dat.gz
+out.html
 
 ############################
 # Easy JSON generated code #
