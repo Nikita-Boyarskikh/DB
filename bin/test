@@ -4,4 +4,4 @@ docker build . -t n.boyarskikh &&\
 docker run -p 5000:5000 --name n.boyarskikh -t n.boyarskikh &\
 tech-db-forum func &&\
 tech-db-forum fill &&\
-tech-db-forum perf
+tech-db-forum perf --step=10 --duration=600
