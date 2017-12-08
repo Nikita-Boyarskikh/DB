@@ -24,6 +24,10 @@ func Init(config pgx.ConnPoolConfig) error {
 	return nil
 }
 
+func Vacuum() {
+	conn.Exec("VACUUM ANALYZE")
+}
+
 func GetConn() *pgx.ConnPool {
 	return conn
 }

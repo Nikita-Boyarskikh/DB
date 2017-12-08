@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/Nikita-Boyarskikh/DB/api"
 	"github.com/Nikita-Boyarskikh/DB/config"
@@ -24,6 +25,12 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+
+	timer := time.NewTimer(time.Minute * 6)
+	go func() {
+		<-timer.C
+		db.Vacuum()
+	}()
 
 	if s.ListenAndServe(config.URI) != nil {
 		os.Exit(1)
