@@ -5,7 +5,7 @@ DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS voices;
 DROP TABLE IF EXISTS forum_users;
 
-DROP INDEX IF EXISTS idx__users_email;
+DROP INDEX IF EXISTS idx__users_email_hash;
 
 DROP INDEX IF EXISTS idx__forums_slug;
 
@@ -17,6 +17,7 @@ DROP INDEX IF EXISTS idx__posts_forumID;
 DROP INDEX IF EXISTS idx__posts_authorID;
 DROP INDEX IF EXISTS idx__posts_threadID;
 DROP INDEX IF EXISTS idx__posts_parentID;
+DROP INDEX IF EXISTS idx__posts_parents_gin;
 DROP INDEX IF EXISTS idx__posts_created;
 DROP INDEX IF EXISTS idx__posts_ID_threadID_parentID;
 DROP INDEX IF EXISTS idx__posts_ID_threadID;

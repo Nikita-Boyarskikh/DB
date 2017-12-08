@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS forum_users (
   CONSTRAINT pk__forum_users_forumID_userID PRIMARY KEY (forumID, userID)
 );
 
-CREATE INDEX IF NOT EXISTS idx__users_email
-  ON users (email);
+CREATE INDEX IF NOT EXISTS idx__users_email_hash
+  ON users USING HASH (email);
 
 CREATE INDEX IF NOT EXISTS idx__threads_created
   ON threads (created);
@@ -76,7 +76,7 @@ CREATE INDEX IF NOT EXISTS idx__posts_created
   ON posts (created);
 CREATE INDEX IF NOT EXISTS idx__posts_ID_threadID_parentID
   ON posts (id, threadid, parentid);
-CREATE INDEX IF NOT EXISTS idx__posts_parents
+CREATE INDEX IF NOT EXISTS idx__posts_parents_gin
   ON posts USING GIN (parents);
 CREATE INDEX IF NOT EXISTS idx__posts_ID_threadID
   ON posts (id, threadID);
