@@ -11,7 +11,6 @@ import (
 	"github.com/mailru/easyjson/opt"
 )
 
-// TODO: Refactor this method!
 func CreateThread(t models.Thread) (models.Thread, error) {
 	var (
 		id      int32
@@ -118,6 +117,9 @@ func GetThreadsBySlug(slug string, limit int, since time.Time, desc bool) (model
 		return models.Threads{}, err
 	}
 
+	// SELECT * FROM (SELECT u.nickname, u.fullname, u.email, u.about FROM forum_users AS fu JOIN users AS u ON (u.nickname = fu.userID)
+	// WHERE fu.forumID = 'SAcFjB5qqs4Sr' AND u.nickname > 'videant.v8g9fbfow7njpu' LIMIT 17) o ORDER BY o.nickname ASC;
+
 	var threads models.Threads
 	for rows.Next() {
 		vals, err := rows.Values()
@@ -209,59 +211,36 @@ func UpdateThreadBySlugOrID(slugOrID string, t models.PatchThread) (models.Threa
 	return result, nil
 }
 
-// TODO: Refactor this method!
-func VoteForThread(ID int32, vote models.Vote) (models.Thread, error) {
-	var (
-		result  models.Thread
-		created time.Time
-		forumID string
-		slug    *string
-		votes   int32
-		voice   int32
-	)
-
-	if err := conn.QueryRow(`SELECT voice FROM voices WHERE threadID=$1 AND userID=$2`, ID, vote.Nickname).
+func VoteForThread(thread *models.Thread, vote models.Vote) (*models.Thread, error) {
+	var voice int32
+	if err := conn.QueryRow(`SELECT voice FROM voices WHERE threadID=$1 AND userID=$2`, thread.ID.V, vote.Nickname).
 		Scan(&voice); err != nil && err != pgx.ErrNoRows {
-		return models.Thread{}, err
+		return nil, err
 	} else if err == nil && voice == vote.Voice {
-		if err := conn.QueryRow(`SELECT authorID, created AT TIME ZONE 'UTC', forumID, message, title, slug, votes FROM threads
-			WHERE ID=$1`, ID).
-			Scan(&result.Author, &created, &forumID, &result.Message, &result.Title, &slug, &votes); err != nil {
-			return models.Thread{}, err
-		}
+		return thread, nil
 	} else if err == nil {
-		_, err := conn.Exec(`UPDATE voices SET voice=$1 WHERE threadID=$2 AND userID=$3`, vote.Voice, ID, vote.Nickname)
+		_, err := conn.Exec(`UPDATE voices SET voice=$1 WHERE threadID=$2 AND userID=$3`, vote.Voice, thread.ID.V, vote.Nickname)
 		if err != nil {
-			return models.Thread{}, err
+			return nil, err
 		}
 
 		if err := conn.QueryRow(`UPDATE threads SET votes=votes+2*($1) WHERE ID=$2
-		RETURNING authorID, created AT TIME ZONE 'UTC', forumID, message, title, slug, votes`, vote.Voice, ID).
-			Scan(&result.Author, &created, &forumID, &result.Message, &result.Title, &slug, &votes); err != nil {
-			return models.Thread{}, err
+		RETURNING votes`, vote.Voice, thread.ID.V).
+			Scan(&thread.Votes.V); err != nil {
+			return nil, err
 		}
 	} else {
-		_, err := conn.Exec(`INSERT INTO voices(threadID, userID, voice) VALUES ($1, $2, $3)`, ID, vote.Nickname, vote.Voice)
-		if err != nil {
-			return models.Thread{}, err
+		if _, err := conn.Exec(`INSERT INTO voices(threadID, userID, voice) VALUES ($1, $2, $3)`,
+			thread.ID.V, vote.Nickname, vote.Voice); err != nil {
+			return nil, err
 		}
 
 		if err := conn.QueryRow(`UPDATE threads SET votes=votes+($1) WHERE ID=$2
-		RETURNING authorID, created AT TIME ZONE 'UTC', forumID, message, title, slug, votes`, vote.Voice, ID).
-			Scan(&result.Author, &created, &forumID, &result.Message, &result.Title, &slug, &votes); err != nil {
-			return models.Thread{}, err
+		RETURNING votes`, vote.Voice, thread.ID.V).
+			Scan(&thread.Votes.V); err != nil {
+			return nil, err
 		}
 	}
 
-	var optSlug opt.String
-	if slug != nil {
-		optSlug = opt.OString(*slug)
-	}
-	result.ID = opt.OInt32(ID)
-	result.Created = opt.OString(created.Format(config.TimestampOutLayout))
-	result.Forum = opt.OString(forumID)
-	result.Slug = optSlug
-	result.Votes = opt.OInt32(votes)
-
-	return result, nil
+	return thread, nil
 }

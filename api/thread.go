@@ -127,12 +127,12 @@ func ThreadRouter(thread *routing.RouteGroup) {
 			}
 		}
 
-		thread, err := db.VoteForThread(t.ID.V, vote)
+		thread, err := db.VoteForThread(&t, vote)
 		if err != nil {
 			return err
 		}
 
-		json, err := easyjson.Marshal(thread)
+		json, err := easyjson.Marshal(*thread)
 		if err != nil {
 			return err
 		}

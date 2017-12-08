@@ -55,15 +55,21 @@ func CreatePostsInThread(forum string, thread int32,
 		}
 	}
 
-	var (
-		ID  int64
-		ids []int64
-	)
-	for count, post := range posts {
-		if err := conn.QueryRow("SELECT nextval('posts_id_seq')").Scan(&ID); err != nil {
+	rows, err := conn.Query("SELECT nextval('posts_id_seq') FROM generate_series(0, $1)", len(posts)-1)
+	if err != nil {
+		return models.Posts{}, err
+	}
+
+	var ids []int64
+	for rows.Next() {
+		vals, err := rows.Values()
+		if err != nil {
 			return models.Posts{}, err
 		}
+		ids = append(ids, vals[0].(int64))
+	}
 
+	for count, post := range posts {
 		numargs := 7
 		sqlPlaceholders = append(sqlPlaceholders, "($"+strings.Join([]string{
 			strconv.Itoa(count*numargs + 1), strconv.Itoa(count*numargs + 2),
@@ -72,16 +78,15 @@ func CreatePostsInThread(forum string, thread int32,
 			strconv.Itoa(count*numargs + 7),
 		}, ", $")+")")
 
-		resParents := append(parentsMap[parents[count]], ID)
-		ids = append(ids, ID)
-		args = append(args, ID, post.Author, forum, post.Message, post.Parent.V, thread, resParents)
+		resParents := append(parentsMap[parents[count]], ids[count])
+		args = append(args, ids[count], post.Author, forum, post.Message, post.Parent.V, thread, resParents)
 	}
 
 	if len(args) == 0 {
 		return models.Posts{}, nil
 	}
 
-	rows, err := conn.Query(sql+strings.Join(sqlPlaceholders, ", ")+
+	rows, err = conn.Query(sql+strings.Join(sqlPlaceholders, ", ")+
 		` RETURNING created AT TIME ZONE 'UTC'`, args...)
 	if err != nil {
 		return models.Posts{}, err

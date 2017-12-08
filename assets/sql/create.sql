@@ -1,5 +1,3 @@
-SET WORK_MEM = '1GB';
-
 CREATE TABLE IF NOT EXISTS users (
   nickname CITEXT CONSTRAINT pk__users_nickname PRIMARY KEY,
   fullname TEXT,
@@ -31,7 +29,7 @@ CREATE TABLE IF NOT EXISTS posts (
   ID       SERIAL8 CONSTRAINT pk__posts_ID PRIMARY KEY,
   authorID CITEXT,
   created  TIMESTAMP(3) DEFAULT now(),
-  forumID  CITEXT,
+  forumID  CITEXT, -- CONSTRAINT fk__posts_forum_id__forums_id REFERENCES forums(ID),
   isEdited BOOLEAN      DEFAULT FALSE,
   message  TEXT,
   parentID INT8         DEFAULT 0,
@@ -78,3 +76,7 @@ CREATE INDEX IF NOT EXISTS idx__posts_created
   ON posts (created);
 CREATE INDEX IF NOT EXISTS idx__posts_ID_threadID_parentID
   ON posts (id, threadid, parentid);
+CREATE INDEX IF NOT EXISTS idx__posts_parents
+  ON posts USING GIN (parents);
+CREATE INDEX IF NOT EXISTS idx__posts_ID_threadID
+  ON posts (id, threadID);
