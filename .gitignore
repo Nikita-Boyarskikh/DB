@@ -90,7 +90,9 @@ fabric.properties
 
 report.html
 tech-db-forum.dat.gz
+tech-db-forum.best.txt
 out.html
+err.log
 
 ############################
 # Easy JSON generated code #

@@ -6,13 +6,14 @@ GOPATH=/Users/boyanik/GoglandProjects \
 rm -f /private/var/folders/h4/3bc9_j855v945x6d7_5rxxgm0000gn/T/___main_go &&\
 ps ax | grep '/private/var/folders/h4/3bc9_j855v945x6d7_5rxxgm0000gn/T/___main_go' | grep -v 'grep' | awk '{print $1}' | xargs kill &&\
 /usr/local/Cellar/go/1.9/libexec/bin/go build -i -o /private/var/folders/h4/3bc9_j855v945x6d7_5rxxgm0000gn/T/___main_go /Users/boyanik/GoglandProjects/src/github.com/Nikita-Boyarskikh/DB/main.go &&\
-PGHOST='localhost' PGUSER='forums' PGPORT=5432 PGDATABASE='forums_db' PGPASSWORD='forums_admin_pass' /private/var/folders/h4/3bc9_j855v945x6d7_5rxxgm0000gn/T/___main_go &\
-tech-db-forum func &&\
-tech-db-forum fill &&\
+PGHOST='localhost' PGUSER='forums' PGPORT=5432 PGDATABASE='forums_db' PGPASSWORD='forums_admin_pass' /private/var/folders/h4/3bc9_j855v945x6d7_5rxxgm0000gn/T/___main_go 2>err.log &\
+tech-db-forum func --wait=180 &&\
+tech-db-forum fill --timeout=900 &&\
 tech-db-forum perf --step=60 --duration=600 &&\
 rm -f /private/var/folders/h4/3bc9_j855v945x6d7_5rxxgm0000gn/T/___main_go &&\
 ps ax | grep '/private/var/folders/h4/3bc9_j855v945x6d7_5rxxgm0000gn/T/___main_go' | grep -v 'grep' | awk '{print $1}' | xargs kill &&\
 pgbadger /usr/local/var/log/postgres.log &&\
 /Applications/Yandex.app/Contents/MacOS/Yandex out.html &&\
 rm /usr/local/var/log/postgres.log &&\
-touch /usr/local/var/log/postgres.log
+touch /usr/local/var/log/postgres.log &&\
+brew services restart postgresql
