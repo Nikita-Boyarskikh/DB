@@ -26,14 +26,14 @@ RUN mkdir -p $GOPATH/src/$REPO
 COPY . $GOPATH/src/$REPO/
 WORKDIR $GOPATH/src/$REPO
 RUN mkdir -p ./postgresql /var/run/postgresql_sock &&\
-    chown -R postgres ./postgresql /var/run/postgresql_sock &&\
+    chown -R postgres:postgres ./postgresql /var/run/postgresql_sock &&\
     chmod -R a+w /var/run/postgresql_sock
 
 USER postgres
 
 # Work around postgresql
 RUN service postgresql start &&\
-    bash -l -c "echo \$(psql -tc 'SHOW data_directory') > ./postgresql/pgdata.env" &&\
+    bash -l -c "echo \$(psql -tc 'SHOW config_file') > ./postgresql/pgconfig.env" &&\
     psql -c "CREATE ROLE forums WITH LOGIN ENCRYPTED PASSWORD 'forums_admin_pass'" &&\
     psql -c "CREATE DATABASE forums_db;" &&\
     psql -c "GRANT ALL ON DATABASE forums_db TO forums;" &&\
@@ -42,7 +42,8 @@ RUN service postgresql start &&\
 
 USER root
 
-RUN cat ./config/forums.conf >> $(cat ./postgresql/pgdata.env)/postgresql.conf &&\
+RUN cat ./config/forums.conf >> $(cat ./postgresql/pgconfig.env) &&\
+    chown postgres:postgres $(cat ./postgresql/pgconfig.env) &&\
     rm -rf ./postgresql
 
 ENV PGPASSWORD=forums_admin_pass PGUSER=forums PGDATABASE=forums_db PGHOST=127.0.0.1 PGPORT=5432
