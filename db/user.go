@@ -2,17 +2,17 @@ package db
 
 import (
 	"fmt"
-	"strings"
 
 	"strconv"
 
 	"github.com/Nikita-Boyarskikh/DB/models"
+	"github.com/jackc/pgx"
 	"github.com/mailru/easyjson/opt"
 	"github.com/pkg/errors"
 )
 
 // TODO: Refactor this method!
-func UpdateUser(u models.User) (models.User, error) {
+func UpdateUser(tx *pgx.Tx, u models.User) (models.User, error) {
 	var (
 		result   models.User
 		nickname = u.Nickname.V
@@ -24,14 +24,14 @@ func UpdateUser(u models.User) (models.User, error) {
 	}
 
 	if u.Fullname == "" && u.Email == "" && about == "" {
-		if err := conn.QueryRow(
+		if err := tx.QueryRow(
 			`SELECT nickname, fullname, email, about FROM users WHERE nickname = $1`, nickname,
 		).Scan(&nickname, &result.Fullname, &result.Email, &about); err != nil {
 			return models.User{}, err
 		}
 	} else {
 		if u.Fullname == "" && u.Email == "" {
-			if err := conn.QueryRow(`UPDATE users SET about = $1 WHERE nickname = $2
+			if err := tx.QueryRow(`UPDATE users SET about = $1 WHERE nickname = $2
 				RETURNING nickname, fullname, email, about`, about, nickname).
 				Scan(&nickname, &result.Fullname, &result.Email, &about); err != nil {
 				return models.User{}, err
@@ -39,14 +39,14 @@ func UpdateUser(u models.User) (models.User, error) {
 		} else {
 			if u.Fullname == "" {
 				if about == "" {
-					if err := conn.QueryRow(`UPDATE users SET email = $1 WHERE nickname = $2
+					if err := tx.QueryRow(`UPDATE users SET email = $1 WHERE nickname = $2
 				RETURNING nickname, fullname, email, about`,
 						u.Email, nickname).
 						Scan(&nickname, &result.Fullname, &result.Email, &about); err != nil {
 						return models.User{}, err
 					}
 				} else {
-					if err := conn.QueryRow(`UPDATE users SET email = $1, about = $2 WHERE nickname = $3
+					if err := tx.QueryRow(`UPDATE users SET email = $1, about = $2 WHERE nickname = $3
 				RETURNING nickname, fullname, email, about`,
 						u.Email, about, nickname).
 						Scan(&nickname, &result.Fullname, &result.Email, &about); err != nil {
@@ -56,14 +56,14 @@ func UpdateUser(u models.User) (models.User, error) {
 			} else {
 				if about == "" {
 					if u.Email == "" {
-						if err := conn.QueryRow(`UPDATE users SET fullname = $1 WHERE nickname = $2
+						if err := tx.QueryRow(`UPDATE users SET fullname = $1 WHERE nickname = $2
 				RETURNING nickname, fullname, email, about`,
 							u.Fullname, nickname).
 							Scan(&nickname, &result.Fullname, &result.Email, &about); err != nil {
 							return models.User{}, err
 						}
 					} else {
-						if err := conn.QueryRow(`UPDATE users SET fullname = $1, email = $2 WHERE nickname = $3
+						if err := tx.QueryRow(`UPDATE users SET fullname = $1, email = $2 WHERE nickname = $3
 				RETURNING nickname, fullname, email, about`,
 							u.Fullname, u.Email, nickname).
 							Scan(&nickname, &result.Fullname, &result.Email, &about); err != nil {
@@ -72,14 +72,14 @@ func UpdateUser(u models.User) (models.User, error) {
 					}
 				} else {
 					if u.Email == "" {
-						if err := conn.QueryRow(`UPDATE users SET fullname = $1, about = $2 WHERE nickname = $3
+						if err := tx.QueryRow(`UPDATE users SET fullname = $1, about = $2 WHERE nickname = $3
 				RETURNING nickname, fullname, email, about`,
 							u.Fullname, about, nickname).
 							Scan(&nickname, &result.Fullname, &result.Email, &about); err != nil {
 							return models.User{}, err
 						}
 					} else {
-						if err := conn.QueryRow(`UPDATE users SET fullname = $1, email = $2, about = $3 WHERE nickname = $4
+						if err := tx.QueryRow(`UPDATE users SET fullname = $1, email = $2, about = $3 WHERE nickname = $4
 				RETURNING nickname, fullname, email, about`,
 							u.Fullname, u.Email, about, nickname).
 							Scan(&nickname, &result.Fullname, &result.Email, &about); err != nil {
@@ -96,10 +96,10 @@ func UpdateUser(u models.User) (models.User, error) {
 	return result, nil
 }
 
-func CreateUser(u models.User) error {
+func CreateUser(tx *pgx.Tx, u models.User) error {
 	about := opt2string(u.About, "")
 
-	if _, err := conn.Exec(
+	if _, err := tx.Exec(
 		`INSERT INTO users(nickname, fullname, email, about) VALUES ($1, $2, $3, $4)`,
 		u.Nickname.V, u.Fullname, u.Email, about); err != nil {
 		return err
@@ -109,14 +109,14 @@ func CreateUser(u models.User) error {
 	return nil
 }
 
-func GetUserByNickname(nickname string) (models.User, error) {
+func GetUserByNickname(tx *pgx.Tx, nickname string) (models.User, error) {
 	var (
 		fullname string
 		email    string
 		about    string
 	)
 
-	if err := conn.QueryRow(
+	if err := tx.QueryRow(
 		`SELECT nickname, fullname, email, about FROM users WHERE nickname = $1`, nickname).
 		Scan(&nickname, &fullname, &email, &about); err != nil {
 		return models.User{}, err
@@ -130,8 +130,16 @@ func GetUserByNickname(nickname string) (models.User, error) {
 	}, nil
 }
 
-func GetUsersByEmailAndNickname(email, nickname string) (models.Users, error) {
-	rows, err := conn.Query(
+func GetUserNickname(tx *pgx.Tx, nickname string) (string, error) {
+	if err := tx.QueryRow(
+		`SELECT nickname FROM users WHERE nickname = $1`, nickname).Scan(&nickname); err != nil {
+		return "", err
+	}
+	return nickname, nil
+}
+
+func GetUsersByEmailAndNickname(tx *pgx.Tx, email, nickname string) (models.Users, error) {
+	rows, err := tx.Query(
 		`SELECT nickname, fullname, email, about FROM users WHERE email = $1 OR nickname = $2`,
 		email, nickname)
 	if err != nil {
@@ -155,27 +163,31 @@ func GetUsersByEmailAndNickname(email, nickname string) (models.Users, error) {
 	return users, nil
 }
 
-func CheckAllUsersExists(nicknames []string) (bool, error) {
-	uniqNicknamesMap := make(map[string]bool)
-	for _, n := range nicknames {
-		uniqNicknamesMap[n] = true
+func CheckAllUsersExists(tx *pgx.Tx, nicknames map[string]bool) (bool, error) {
+	n := -4
+	for k := range nicknames {
+		n += len(k) + 4
+	}
+	uniqNicknames := make([]byte, n)
+	first := true
+	bp := 0
+	for k := range nicknames {
+		if !first {
+			bp += copy(uniqNicknames[bp:], "', '")
+		}
+		bp += copy(uniqNicknames[bp:], k)
+		first = false
 	}
 
-	var uniqNicknames []string
-	for n := range uniqNicknamesMap {
-		uniqNicknames = append(uniqNicknames, n)
-	}
-
-	tag, err := conn.Exec(fmt.Sprintf(`SELECT nickname FROM users WHERE nickname IN ('%s')`,
-		strings.Join(uniqNicknames, "', '")))
+	tag, err := tx.Exec(`SELECT nickname FROM users WHERE nickname IN ('` + string(uniqNicknames) + `')`)
 	if err != nil {
 		return false, err
 	}
 
-	return tag.RowsAffected() == int64(len(uniqNicknames)), nil
+	return tag.RowsAffected() == int64(len(nicknames)), nil
 }
 
-func GetUsersByForumSlug(slug string, since string, limit int, desc bool) (models.Users, error) {
+func GetUsersByForumSlug(tx *pgx.Tx, slug string, since string, limit int, desc bool) (models.Users, error) {
 	sqlPattern := `SELECT u.nickname, u.fullname, u.email, u.about FROM forum_users AS fu
 		JOIN users AS u ON (u.nickname = fu.userID) WHERE fu.forumID = %s ORDER BY u.nickname %s`
 
@@ -203,7 +215,7 @@ func GetUsersByForumSlug(slug string, since string, limit int, desc bool) (model
 	}
 
 	sql := fmt.Sprintf(sqlPattern, args[0], args[1])
-	rows, err := conn.Query(sql)
+	rows, err := tx.Query(sql)
 	if err != nil {
 		return models.Users{}, err
 	}

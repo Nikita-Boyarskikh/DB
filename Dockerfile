@@ -42,8 +42,6 @@ RUN service postgresql start &&\
 
 USER root
 
-RUN echo $(cat ./postgresql/pgdata.env)
-
 RUN cat ./config/forums.conf >> $(cat ./postgresql/pgdata.env)/postgresql.conf &&\
     rm -rf ./postgresql
 

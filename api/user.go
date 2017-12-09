@@ -25,7 +25,13 @@ func UserRouter(user *routing.RouteGroup) {
 			return nil
 		}
 
-		users, err := db.GetUsersByEmailAndNickname(user.Email, nickname)
+		tx, err := db.GetConn().Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+
+		users, err := db.GetUsersByEmailAndNickname(tx, user.Email, nickname)
 		if len(users) > 0 {
 			json, err := easyjson.Marshal(users)
 			if err != nil {
@@ -35,12 +41,12 @@ func UserRouter(user *routing.RouteGroup) {
 			ctx.SetStatusCode(fasthttp.StatusConflict)
 			ctx.SetContentType("application/json")
 			ctx.SetBody(json)
-			return nil
+			return tx.Commit()
 		} else if err != nil {
 			return err
 		}
 
-		if err := db.CreateUser(user); err != nil {
+		if err := db.CreateUser(tx, user); err != nil {
 			return err
 		}
 
@@ -52,7 +58,7 @@ func UserRouter(user *routing.RouteGroup) {
 		ctx.SetStatusCode(fasthttp.StatusCreated)
 		ctx.SetContentType("application/json")
 		ctx.SetBody(json)
-		return nil
+		return tx.Commit()
 	})
 
 	user.Post("/<nickname>/profile", func(ctx *routing.Context) error {
@@ -69,35 +75,37 @@ func UserRouter(user *routing.RouteGroup) {
 			return nil
 		}
 
-		users, err := db.GetUsersByEmailAndNickname(user.Email, nickname)
-		if len(users) > 1 {
-			message, err := easyjson.Marshal(models.Error{"Email or nickname conflict with existing users"})
-			if err != nil {
-				return err
-			}
-
-			ctx.SetStatusCode(fasthttp.StatusConflict)
-			ctx.SetContentType("application/json")
-			ctx.SetBody(message)
-			return nil
-		} else if len(users) == 0 {
-			message, err := easyjson.Marshal(models.Error{"User with requested nickname is not found"})
-			if err != nil {
-				return err
-			}
-
-			ctx.SetStatusCode(fasthttp.StatusNotFound)
-			ctx.SetContentType("application/json")
-			ctx.SetBody(message)
-
-			return nil
-		} else if err != nil {
-			return err
-		}
-
-		updatedUser, err := db.UpdateUser(user)
+		tx, err := db.GetConn().Begin()
 		if err != nil {
 			return err
+		}
+		defer tx.Rollback()
+
+		updatedUser, err := db.UpdateUser(tx, user)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				message, err := easyjson.Marshal(models.Error{"User with requested nickname is not found"})
+				if err != nil {
+					return err
+				}
+
+				ctx.SetStatusCode(fasthttp.StatusNotFound)
+				ctx.SetContentType("application/json")
+				ctx.SetBody(message)
+
+				return tx.Commit()
+			} else {
+				message, err := easyjson.Marshal(models.Error{"Email or nickname conflict with existing users"})
+				if err != nil {
+					return err
+				}
+
+				ctx.SetStatusCode(fasthttp.StatusConflict)
+				ctx.SetContentType("application/json")
+				ctx.SetBody(message)
+
+				return nil
+			}
 		}
 
 		json, err := easyjson.Marshal(updatedUser)
@@ -107,13 +115,19 @@ func UserRouter(user *routing.RouteGroup) {
 
 		ctx.Success("application/json", json)
 
-		return nil
+		return tx.Commit()
 	})
 
 	user.Get("/<nickname>/profile", func(ctx *routing.Context) error {
 		nickname := ctx.Param("nickname")
 
-		user, err := db.GetUserByNickname(nickname)
+		tx, err := db.GetConn().Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+
+		user, err := db.GetUserByNickname(tx, nickname)
 		if err != nil {
 			if err == pgx.ErrNoRows {
 				json, err := easyjson.Marshal(models.Error{"Requested user is not found"})
@@ -124,7 +138,7 @@ func UserRouter(user *routing.RouteGroup) {
 				ctx.SetStatusCode(fasthttp.StatusNotFound)
 				ctx.SetContentType("application/json")
 				ctx.SetBody(json)
-				return nil
+				return tx.Commit()
 			} else {
 				return err
 			}
@@ -136,6 +150,6 @@ func UserRouter(user *routing.RouteGroup) {
 		}
 
 		ctx.Success("application/json", json)
-		return nil
+		return tx.Commit()
 	})
 }

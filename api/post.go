@@ -18,7 +18,13 @@ func PostRouter(post *routing.RouteGroup) {
 		intId, _ := strconv.Atoi(strId)
 		id := int64(intId)
 
-		exPost, err := db.GetPost(id)
+		tx, err := db.GetConn().Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+
+		exPost, err := db.GetPost(tx, id)
 		if err != nil {
 			if err == pgx.ErrNoRows {
 				json, err := easyjson.Marshal(models.Error{"Post with requested ID is not found"})
@@ -29,7 +35,7 @@ func PostRouter(post *routing.RouteGroup) {
 				ctx.SetStatusCode(fasthttp.StatusNotFound)
 				ctx.SetContentType("application/json")
 				ctx.SetBody(json)
-				return nil
+				return tx.Commit()
 			} else {
 				return err
 			}
@@ -39,20 +45,17 @@ func PostRouter(post *routing.RouteGroup) {
 		if err := easyjson.Unmarshal(ctx.PostBody(), &editPost); err != nil {
 			ctx.SetStatusCode(fasthttp.StatusBadRequest)
 			ctx.WriteData(err.Error())
-			return nil
+			return tx.Commit()
 		}
 
 		var post models.Post
 		if editPost.Message.Defined {
-			post, err = db.UpdatePostMessage(id, editPost.Message.V, editPost.Message.V != exPost.Message)
+			post, err = db.UpdatePostMessage(tx, id, editPost.Message.V, editPost.Message.V != exPost.Message)
 			if err != nil {
 				return err
 			}
 		} else {
-			post, err = db.GetPost(id)
-			if err != nil {
-				return err
-			}
+			post = exPost
 		}
 
 		json, err := easyjson.Marshal(post)
@@ -61,7 +64,7 @@ func PostRouter(post *routing.RouteGroup) {
 		}
 
 		ctx.Success("application/json", json)
-		return nil
+		return tx.Commit()
 	})
 
 	post.Get("/<id>/details", func(ctx *routing.Context) error {
@@ -69,7 +72,13 @@ func PostRouter(post *routing.RouteGroup) {
 		intId, _ := strconv.Atoi(strId)
 		id := int64(intId)
 
-		post, err := db.GetPost(id)
+		tx, err := db.GetConn().Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+
+		post, err := db.GetPost(tx, id)
 		if err != nil {
 			if err == pgx.ErrNoRows {
 				json, err := easyjson.Marshal(models.Error{"Post with requested ID is not found"})
@@ -80,7 +89,7 @@ func PostRouter(post *routing.RouteGroup) {
 				ctx.SetStatusCode(fasthttp.StatusNotFound)
 				ctx.SetContentType("application/json")
 				ctx.SetBody(json)
-				return nil
+				return tx.Commit()
 			} else {
 				return err
 			}
@@ -100,15 +109,24 @@ func PostRouter(post *routing.RouteGroup) {
 		)
 
 		if relObjs["user"] {
-			authorObj, _ := db.GetUserByNickname(post.Author)
+			authorObj, err := db.GetUserByNickname(tx, post.Author)
+			if err != nil {
+				return err
+			}
 			author = &authorObj
 		}
 		if relObjs["thread"] {
-			threadObj, _ := db.GetThreadBySlugOrID(string(post.Thread.V), post.Thread.V)
+			threadObj, err := db.GetThreadBySlugOrID(tx, string(post.Thread.V), post.Thread.V)
+			if err != nil {
+				return err
+			}
 			thread = &threadObj
 		}
 		if relObjs["forum"] {
-			_, forumObj, _ := db.GetForumBySlug(post.Forum.V)
+			_, forumObj, err := db.GetForumBySlug(tx, post.Forum.V)
+			if err != nil {
+				return err
+			}
 			forum = &forumObj
 		}
 
@@ -123,6 +141,6 @@ func PostRouter(post *routing.RouteGroup) {
 		}
 
 		ctx.Success("application/json", json)
-		return nil
+		return tx.Commit()
 	})
 }

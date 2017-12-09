@@ -2,10 +2,11 @@ package db
 
 import (
 	"github.com/Nikita-Boyarskikh/DB/models"
+	"github.com/jackc/pgx"
 	"github.com/mailru/easyjson/opt"
 )
 
-func GetForumBySlug(slug string) (int, models.Forum, error) {
+func GetForumBySlug(tx *pgx.Tx, slug string) (int, models.Forum, error) {
 	var (
 		id       int
 		posts    int64
@@ -14,7 +15,7 @@ func GetForumBySlug(slug string) (int, models.Forum, error) {
 		nickname string
 	)
 
-	if err := conn.QueryRow(`SELECT id, posts, slug, threads, title, userID FROM forums WHERE slug = $1`, slug).
+	if err := tx.QueryRow(`SELECT id, posts, slug, threads, title, userID FROM forums WHERE slug = $1`, slug).
 		Scan(&id, &posts, &slug, &threads, &title, &nickname); err != nil {
 		return -1, models.Forum{}, err
 	}
@@ -28,9 +29,17 @@ func GetForumBySlug(slug string) (int, models.Forum, error) {
 	}, nil
 }
 
-func CreateForum(f models.Forum) (int, error) {
+func GetForumSlug(tx *pgx.Tx, slug string) (string, error) {
+	if err := tx.QueryRow(`SELECT slug FROM forums WHERE slug = $1`, slug).Scan(&slug); err != nil {
+		return "", err
+	}
+
+	return slug, nil
+}
+
+func CreateForum(tx *pgx.Tx, f models.Forum) (int, error) {
 	var id int
-	if err := conn.QueryRow(`INSERT INTO forums(slug, title, userID) VALUES ($1, $2, $3) RETURNING id`,
+	if err := tx.QueryRow(`INSERT INTO forums(slug, title, userID) VALUES ($1, $2, $3) RETURNING id`,
 		f.Slug, f.Title, f.User).Scan(&id); err != nil {
 		return id, err
 	}

@@ -1,3 +1,7 @@
+ALTER TABLE forum_users DROP CONSTRAINT IF EXISTS fk__forum_users_forumID__forums_slug;
+ALTER TABLE threads DROP CONSTRAINT IF EXISTS fk__threads_forumID__forums_slug;
+ALTER TABLE voices DROP CONSTRAINT IF EXISTS fk__voices_userID__users_nickname;
+
 DROP TABLE IF EXISTS posts;
 DROP TABLE IF EXISTS threads;
 DROP TABLE IF EXISTS forums;

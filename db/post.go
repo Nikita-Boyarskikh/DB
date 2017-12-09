@@ -18,7 +18,7 @@ import (
 	"github.com/mailru/easyjson/opt"
 )
 
-func CreatePostsInThread(forum string, thread int32,
+func CreatePostsInThread(tx *pgx.Tx, forum string, thread int32,
 	posts models.Posts, parents []int64, parentsWithoutZeros []string) (models.Posts, error) {
 	sql := `INSERT INTO posts(ID, authorID, forumID, message, parentID, threadID, parents) VALUES `
 
@@ -30,7 +30,7 @@ func CreatePostsInThread(forum string, thread int32,
 	)
 
 	if len(parentsWithoutZeros) > 0 {
-		rows, err := conn.Query("SELECT ID, parents FROM posts WHERE ID IN (" +
+		rows, err := tx.Query("SELECT ID, parents FROM posts WHERE ID IN (" +
 			strings.Join(parentsWithoutZeros, ", ") + ")")
 		if err != nil {
 			return models.Posts{}, err
@@ -55,7 +55,7 @@ func CreatePostsInThread(forum string, thread int32,
 		}
 	}
 
-	rows, err := conn.Query("SELECT nextval('posts_id_seq') FROM generate_series(0, $1)", len(posts)-1)
+	rows, err := tx.Query("SELECT nextval('posts_id_seq') FROM generate_series(0, $1)", len(posts)-1)
 	if err != nil {
 		return models.Posts{}, err
 	}
@@ -86,7 +86,7 @@ func CreatePostsInThread(forum string, thread int32,
 		return models.Posts{}, nil
 	}
 
-	rows, err = conn.Query(sql+strings.Join(sqlPlaceholders, ", ")+
+	rows, err = tx.Query(sql+strings.Join(sqlPlaceholders, ", ")+
 		` RETURNING created AT TIME ZONE 'UTC'`, args...)
 	if err != nil {
 		return models.Posts{}, err
@@ -115,13 +115,14 @@ func CreatePostsInThread(forum string, thread int32,
 		i++
 	}
 
-	if err := NewPosts(result); err != nil {
+	if err := NewPosts(tx, result); err != nil {
 		return models.Posts{}, err
 	}
+
 	return result, nil
 }
 
-func UpdatePostMessage(id int64, message string, edited bool) (models.Post, error) {
+func UpdatePostMessage(tx *pgx.Tx, id int64, message string, edited bool) (models.Post, error) {
 	var (
 		post    models.Post
 		created time.Time
@@ -130,7 +131,7 @@ func UpdatePostMessage(id int64, message string, edited bool) (models.Post, erro
 		thread  int32
 	)
 
-	if err := conn.QueryRow(`UPDATE posts SET message=$1, isEdited=$2 WHERE ID=$3
+	if err := tx.QueryRow(`UPDATE posts SET message=$1, isEdited=$2 WHERE ID=$3
 			RETURNING authorID, created AT TIME ZONE 'UTC', forumID, parentID, threadID`, message, edited, id).
 		Scan(&post.Author, &created, &forum, &parent, &thread); err != nil {
 		return models.Post{}, err
@@ -147,7 +148,7 @@ func UpdatePostMessage(id int64, message string, edited bool) (models.Post, erro
 	return post, nil
 }
 
-func GetPost(id int64) (models.Post, error) {
+func GetPost(tx *pgx.Tx, id int64) (models.Post, error) {
 	var (
 		post    models.Post
 		created time.Time
@@ -157,7 +158,7 @@ func GetPost(id int64) (models.Post, error) {
 		thread  int32
 	)
 
-	if err := conn.QueryRow(`SELECT authorID, created AT TIME ZONE 'UTC', forumID, isEdited, message, parentID, threadID FROM posts
+	if err := tx.QueryRow(`SELECT authorID, created AT TIME ZONE 'UTC', forumID, isEdited, message, parentID, threadID FROM posts
 		WHERE id=$1`, id).
 		Scan(&post.Author, &created, &forum, &edited, &post.Message, &parent, &thread); err != nil {
 		return models.Post{}, err
@@ -173,7 +174,7 @@ func GetPost(id int64) (models.Post, error) {
 	return post, nil
 }
 
-func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.Posts, error) {
+func GetPosts(tx *pgx.Tx, id int32, limit int, since int64, sort string, desc bool) (models.Posts, error) {
 	var (
 		rows  *pgx.Rows
 		posts models.Posts
@@ -205,7 +206,7 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.
 		}
 
 		var err error
-		if rows, err = conn.Query(sql, id, limit); err != nil {
+		if rows, err = tx.Query(sql, id, limit); err != nil {
 			return models.Posts{}, err
 		}
 		break
@@ -252,12 +253,12 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.
 
 		if since > 0 {
 			var err error
-			if rows, err = conn.Query(sql, id, id, since, limit); err != nil {
+			if rows, err = tx.Query(sql, id, id, since, limit); err != nil {
 				return models.Posts{}, err
 			}
 		} else {
 			var err error
-			if rows, err = conn.Query(sql, id, id, limit); err != nil {
+			if rows, err = tx.Query(sql, id, id, limit); err != nil {
 				return models.Posts{}, err
 			}
 		}
@@ -288,12 +289,12 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.
 
 		if since > 0 {
 			var err error
-			if rows, err = conn.Query(sql, id, since, limit); err != nil {
+			if rows, err = tx.Query(sql, id, since, limit); err != nil {
 				return models.Posts{}, err
 			}
 		} else {
 			var err error
-			if rows, err = conn.Query(sql, id, limit); err != nil {
+			if rows, err = tx.Query(sql, id, limit); err != nil {
 				return models.Posts{}, err
 			}
 		}
@@ -320,7 +321,7 @@ func GetPosts(id int32, limit int, since int64, sort string, desc bool) (models.
 	return posts, nil
 }
 
-func CheckAllPostsInOneThread(id int32, posts models.Posts) (bool, error) {
+func CheckAllPostsInOneThread(tx *pgx.Tx, id int32, posts models.Posts) (bool, error) {
 	postParents := make(map[int64]bool)
 	for _, post := range posts {
 		if post.Parent.Defined && post.Parent.V != 0 {
@@ -339,7 +340,7 @@ func CheckAllPostsInOneThread(id int32, posts models.Posts) (bool, error) {
 
 	format := `SELECT threadID FROM posts WHERE ID IN (%s)`
 	sql := fmt.Sprintf(format, strings.Join(parentIDs, ", "))
-	rows, err := conn.Query(sql)
+	rows, err := tx.Query(sql)
 	if err != nil {
 		return false, err
 	}
