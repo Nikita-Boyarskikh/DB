@@ -6,4 +6,4 @@ Test task for course DBMS for Technopark (REST JSON API for application "Forums"
 [API in Swagger UI](https://tech-db-forum.bozaro.ru/)
 
 * [x] Функциональное тестирование
-* [ ] Нагрузочное тестирование
+* [x] Нагрузочное тестирование
